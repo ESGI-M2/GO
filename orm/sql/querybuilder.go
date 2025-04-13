@@ -2,22 +2,27 @@ package orm
 
 import (
 	"log"
-	"project/orm/sql/components"
 	"project/orm/utils"
-	"strings"
 	"strconv"
+	"strings"
+
+	queries "project/orm/sql/components/queries"
+	insert "project/orm/sql/components/insert"
 )
 
 type Query struct {
-	components.Query
+	queries.Query
+}
+
+type InsertQuery struct {
+	insert.InsertQuery
 }
 
 func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 	var result []map[string]interface{}
 
-	// TODO Essayer de passer la Query en parametres 
-	if !utils.EvaluateCondition(q.WhereClause) {
-		log.Fatalf("Invalid where")
+	if !utils.EvaluateCondition(&q.Query) {
+		log.Fatalf("Invalid request")
 		return nil
 	}
 
@@ -26,6 +31,10 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 	field := parts[0]
 	operator := parts[1]
 	value := parts[2]
+
+	// TODO prendre en compte + de params pour between
+
+	q.Fields = utils.AsterixValue(&q.Query, datas[0])
 
 	for _, data := range datas {
 		include := false
@@ -36,42 +45,7 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 			if err != nil {
 				log.Fatalf("Fail convertion from %s to int: %v", value, err)
 			}
-			switch operator {
-			case ">":
-				if fieldValue, ok := fieldValue.(int); ok {
-					if fieldValue > parsedValue {
-						include = true
-					}
-				}
-
-			case "<":
-				if fieldValue, ok := fieldValue.(int); ok {
-					if fieldValue < parsedValue {
-						include = true
-					}
-				}
-
-			case "=":
-				if fieldValue == value {
-					include = true
-				}
-
-			case ">=":
-				if fieldValue, ok := fieldValue.(int); ok {
-					if fieldValue >= parsedValue {
-						include = true
-					}
-				}
-
-			case "<=":
-				if fieldValue, ok := fieldValue.(int); ok {
-					if fieldValue <= parsedValue {
-						include = true
-					}
-				}
-			default:
-				log.Fatalf("Operation not supported: %s", operator)
-			}
+			include = Operation(operator, fieldValue, parsedValue, value)
 		}
 
 		if include {
@@ -90,4 +64,48 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 	}
 
 	return result
+}
+
+func Operation(operator string, fieldValue interface{}, parsedValue int, value string) bool {
+	switch operator {
+	case ">":
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue > parsedValue {
+				return true
+			}
+		}
+
+	case "<":
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue < parsedValue {
+				return true
+			}
+		}
+
+	case "=":
+		parsedVal, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		if fieldValue.(int) == parsedVal{
+			return true
+		}
+
+	case ">=":
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue >= parsedValue {
+				return true
+			}
+		}
+
+	case "<=":
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue <= parsedValue {
+				return true
+			}
+		}
+	default:
+		log.Fatalf("Operation not supported: %s", operator)
+	}
+	return false
 }
