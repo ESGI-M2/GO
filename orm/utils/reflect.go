@@ -2,7 +2,7 @@ package utils
 
 import (
 	"reflect"
-	"project/orm/sql/components"
+	"project/orm/sql/components/queries"
 	"strings"
 	"regexp"
 	"project/memory"
@@ -38,8 +38,8 @@ func StructSliceToMapSlice(slice interface{}) []map[string]interface{} {
 	return result
 }
 
-func EvaluateCondition(condition string) (bool) {
-	condition = strings.TrimSpace(condition)
+func EvaluateCondition(q *components.Query) bool {
+	condition := strings.TrimSpace(q.WhereClause)
 
 	if len(strings.Fields(condition)) < 3 || condition == "" {
 		return false
@@ -79,4 +79,14 @@ func FieldInsensitive(data map[string]interface{}, field string) string {
 	}
 
 	return ""
+}
+
+func AsterixValue(q *components.Query, data map[string]interface{}) []string {
+	if q.Fields[0] == "*" {
+		q.Fields = []string{}
+		for key := range data {
+			q.Fields = append(q.Fields, key)
+		}
+	}
+	return q.Fields
 }

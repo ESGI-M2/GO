@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	queries "project/orm/sql/components/queries"
 	insert "project/orm/sql/components/insert"
+	queries "project/orm/sql/components/queries"
 )
 
 type Query struct {
@@ -32,8 +32,6 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 	operator := parts[1]
 	value := parts[2]
 
-	// TODO prendre en compte + de params pour between
-
 	q.Fields = utils.AsterixValue(&q.Query, datas[0])
 
 	for _, data := range datas {
@@ -45,7 +43,7 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 			if err != nil {
 				log.Fatalf("Fail convertion from %s to int: %v", value, err)
 			}
-			include = Operation(operator, fieldValue, parsedValue, value)
+			include = Operation(operator, fieldValue, parsedValue, value, parts)
 		}
 
 		if include {
@@ -66,7 +64,8 @@ func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
 	return result
 }
 
-func Operation(operator string, fieldValue interface{}, parsedValue int, value string) bool {
+func Operation(operator string, fieldValue interface{}, parsedValue int, value string, other []string) bool {
+	operator = strings.ToLower(operator)
 	switch operator {
 	case ">":
 		if fieldValue, ok := fieldValue.(int); ok {
@@ -104,6 +103,32 @@ func Operation(operator string, fieldValue interface{}, parsedValue int, value s
 				return true
 			}
 		}
+
+	case "<>":
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue != parsedValue {
+				return true
+			}
+		}
+
+	case "between":
+		first, err := strconv.Atoi(other[2])
+		second, err := strconv.Atoi(other[4])
+
+		if err != nil {
+			log.Fatalf("Fail convertion from %s to int: %v", other[4], err)
+		}
+
+		if fieldValue, ok := fieldValue.(int); ok {
+			if fieldValue >= first && fieldValue <= second {
+				return true
+			}
+		}
+
+	case "like":
+		// TODO
+	case "in":
+		// TODO	
 	default:
 		log.Fatalf("Operation not supported: %s", operator)
 	}

@@ -27,6 +27,7 @@ func (iq *InsertQuery) Apply() {
 	case "users":
 		var newUser models.User
 		for i, col := range iq.Columns {
+			// TODO dynamiser pour chaque colonne
 			switch strings.ToLower(col) {
 			case "name":
 				newUser.Name = iq.Values[i].(string)

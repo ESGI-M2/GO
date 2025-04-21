@@ -11,7 +11,7 @@ func TestQuery(t *testing.T) {
 	query := &Query{}
 	query.Select("*").
 		From("users").
-		Where("age > 30").
+		Where("age BETWEEN 10 AND 30").
 		Limit(2)
 
 	table := utils.FilterData(query.Table)
