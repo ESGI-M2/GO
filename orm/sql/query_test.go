@@ -2,8 +2,9 @@ package orm
 
 import (
 	"fmt"
-	"project/orm/utils"
 	"testing"
+	"project/orm/utils"
+	"project/memory"
 )
 
 func TestQuery(t *testing.T) {
@@ -23,10 +24,11 @@ func TestQuery(t *testing.T) {
 func TestInsert(t *testing.T) {
 	insert := &InsertQuery{}
 	insert.Into("users").
-	Set([]string{"Name", "Age"}, []interface{}{"Alice", 25})
+		Set([]string{"Name", "Age"}, []interface{}{"Test", 20})
 
-	table := utils.FilterData(insert.Table)
+	insert.Apply()
 
-	result := insert.Build(table)
-	fmt.Println("\n Résultat insert :" + result)
+	for _, user := range data.Users {
+		fmt.Printf("User: %+v\n", user)
+	}
 }
