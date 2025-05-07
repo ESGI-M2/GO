@@ -3,7 +3,6 @@ package orm
 import (
 	"fmt"
 	"testing"
-	"project/orm/utils"
 	"project/memory"
 )
 
@@ -11,14 +10,12 @@ func TestQuery(t *testing.T) {
 	query := &Query{}
 	query.Select("*").
 		From("users").
-		Where("age BETWEEN 10 AND 30").
+		Where("age > 0").
 		Limit(2)
 
-	table := utils.FilterData(query.Table)
-
-	filteredUsers := query.Apply(table)
+	filteredUsers := query.Apply(query.Table)
 	fmt.Print("\n Filtre: ")
-	fmt.Print(filteredUsers)
+	fmt.Print(filteredUsers, "\n")
 }
 
 func TestInsert(t *testing.T) {

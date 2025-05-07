@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"log"
-	"project/models"
-	"project/memory"
+	"project/orm/utils"
 )
 
 func (iq *InsertQuery) Build() string {
@@ -23,29 +22,8 @@ func (iq *InsertQuery) Build() string {
 }
 
 func (iq *InsertQuery) Apply() {
-	switch iq.Table {
-	case "users":
-		var newUser models.User
-		for i, col := range iq.Columns {
-			// TODO dynamiser pour chaque colonne
-			switch strings.ToLower(col) {
-			case "name":
-				newUser.Name = iq.Values[i].(string)
-			case "age":
-				newUser.Age = iq.Values[i].(int)
-			}
-		}
-
-		maxID := 0
-		for _, u := range data.Users {
-			if u.ID > maxID {
-				maxID = u.ID
-			}
-		}
-		newUser.ID = maxID + 1
-		data.Users = append(data.Users, newUser)
-	default:
-		log.Fatalf("Unknown table: %s", iq.Table)
-	}
+	entityType := utils.GetEntityType(iq.Table)
+    object := utils.SetFields(entityType, iq.Columns, iq.Values)
+	utils.AppendToData(iq.Table, object)
 }
 

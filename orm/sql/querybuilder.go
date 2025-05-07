@@ -18,7 +18,9 @@ type InsertQuery struct {
 	insert.InsertQuery
 }
 
-func (q *Query) Apply(datas []map[string]interface{}) []map[string]interface{} {
+func (q *Query) Apply(table string) []map[string]interface{} {
+	datas := utils.FilterData(table)
+
 	var result []map[string]interface{}
 
 	if !utils.EvaluateCondition(&q.Query) {

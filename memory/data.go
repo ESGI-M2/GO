@@ -2,6 +2,11 @@ package data
 
 import "project/models"
 
+var Store = map[string]interface{}{
+	"users": &Users,
+	"posts": &Posts,
+}
+
 var Users = []models.User{
 	{ID: 1, Name: "Alice", Age: 25},
 	{ID: 2, Name: "Bob", Age: 35},
