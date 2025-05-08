@@ -8,10 +8,10 @@ var Store = map[string]interface{}{
 }
 
 var Users = []models.User{
-	{ID: 1, Name: "Alice", Age: 25},
-	{ID: 2, Name: "Bob", Age: 35},
-	{ID: 3, Name: "Charlie", Age: 30},
-	{ID: 4, Name: "David", Age: 40},
+	{ID: 1, Name: "Alice", Age: 25, IsActive: true},
+	{ID: 2, Name: "Bob", Age: 35, IsActive: true},
+	{ID: 3, Name: "Charlie", Age: 30, IsActive: false},
+	{ID: 4, Name: "David", Age: 40, IsActive: true},
 }
 
 var Posts = []models.Post{
