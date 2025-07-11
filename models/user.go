@@ -1,8 +1,9 @@
 package models
 
 type User struct {
-	ID   int    `db:"id" primary:"true" autoincrement:"true"`
-	Name string `db:"name"`
-	Age  int    `db:"age"`
-	IsActive bool
+	ID       int    `orm:"pk,auto"`
+	Name     string `orm:"index"`
+	Email    string `orm:"unique"`
+	Age      int
+	IsActive bool `orm:"default:true"`
 }

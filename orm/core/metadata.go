@@ -3,8 +3,97 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
+
+// Tag constants for better maintainability
+const (
+	TagORM        = "orm"
+	TagDB         = "db"
+	TagPrimary    = "primary"
+	TagAutoIncr   = "autoincrement" // Changed from "auto_increment" to match old tags
+	TagUnique     = "unique"
+	TagIndex      = "index"
+	TagForeignKey = "foreign" // Changed from "foreign_key" to match old tags
+	TagRelation   = "relation"
+	TagColumn     = "column"
+	TagLength     = "length"
+	TagDefault    = "default"
+	TagNullable   = "nullable"
+)
+
+// ORMTag represents parsed ORM tag data
+type ORMTag struct {
+	Column       string
+	PrimaryKey   bool
+	AutoIncr     bool
+	Unique       bool
+	Index        bool
+	ForeignKey   string
+	Length       int
+	Default      string
+	Nullable     bool
+	Relation     string
+	RelationType string
+}
+
+// parseORMTag parses ORM tags like "primary,auto" or "column:title,index"
+func parseORMTag(tag string) *ORMTag {
+	if tag == "" {
+		return &ORMTag{}
+	}
+
+	ormTag := &ORMTag{}
+	parts := strings.Split(tag, ",")
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		// Handle key-value pairs like "column:title"
+		if strings.Contains(part, ":") {
+			kv := strings.SplitN(part, ":", 2)
+			key := strings.TrimSpace(kv[0])
+			value := strings.TrimSpace(kv[1])
+
+			switch key {
+			case "column":
+				ormTag.Column = value
+			case "fk", "foreign_key":
+				ormTag.ForeignKey = value
+			case "length":
+				if len, err := strconv.Atoi(value); err == nil {
+					ormTag.Length = len
+				}
+			case "default":
+				ormTag.Default = value
+			case "relation":
+				ormTag.Relation = value
+			case "type":
+				ormTag.RelationType = value
+			}
+		} else {
+			// Handle boolean flags like "primary", "auto"
+			switch part {
+			case "pk", "primary":
+				ormTag.PrimaryKey = true
+			case "auto", "auto_increment":
+				ormTag.AutoIncr = true
+			case "unique":
+				ormTag.Unique = true
+			case "index":
+				ormTag.Index = true
+			case "nullable":
+				ormTag.Nullable = true
+			}
+		}
+	}
+
+	return ormTag
+}
 
 // MetadataManager handles model metadata extraction and caching
 type MetadataManager struct {
@@ -75,59 +164,108 @@ func (mm *MetadataManager) ExtractMetadata(model interface{}) (*ModelMetadata, e
 
 // extractColumn extracts column information from a struct field
 func (mm *MetadataManager) extractColumn(field reflect.StructField) (*Column, error) {
-	dbTag := field.Tag.Get("db")
-	if dbTag == "" || dbTag == "-" {
+	// Try ORM tag first, then fall back to DB tag for backward compatibility
+	ormTagStr := field.Tag.Get(TagORM)
+	dbTag := field.Tag.Get(TagDB)
+
+	if ormTagStr == "" && dbTag == "" {
+		return nil, nil
+	}
+
+	if ormTagStr == "-" || dbTag == "-" {
 		return nil, nil
 	}
 
 	column := &Column{
-		Name:     dbTag,
 		Type:     getSQLType(field.Type),
 		Nullable: true, // Default to nullable
 	}
 
-	// Extract primary key
-	if field.Tag.Get("primary") == "true" {
-		column.PrimaryKey = true
-		column.Nullable = false
-	}
+	// Parse ORM tag if present
+	if ormTagStr != "" {
+		ormTag := parseORMTag(ormTagStr)
 
-	// Extract auto increment
-	if field.Tag.Get("autoincrement") == "true" {
-		column.AutoIncrement = true
-	}
-
-	// Extract unique constraint
-	if field.Tag.Get("unique") == "true" {
-		column.Unique = true
-	}
-
-	// Extract index
-	if field.Tag.Get("index") == "true" {
-		column.Index = true
-	}
-
-	// Extract length for string types
-	if length := field.Tag.Get("length"); length != "" {
-		if l, err := parseInt(length); err == nil {
-			column.Length = l
+		// Set column name
+		if ormTag.Column != "" {
+			column.Name = ormTag.Column
+		} else {
+			column.Name = strings.ToLower(field.Name)
 		}
-	}
 
-	// Extract default value
-	if defaultValue := field.Tag.Get("default"); defaultValue != "" {
-		column.Default = parseDefaultValue(defaultValue, field.Type)
-	}
+		// Set boolean flags
+		column.PrimaryKey = ormTag.PrimaryKey
+		column.AutoIncrement = ormTag.AutoIncr
+		column.Unique = ormTag.Unique
+		column.Index = ormTag.Index
+		column.Nullable = ormTag.Nullable
 
-	// Extract foreign key
-	if fk := field.Tag.Get("foreign"); fk != "" {
-		parts := strings.Split(fk, ".")
-		if len(parts) == 2 {
-			column.ForeignKey = &ForeignKey{
-				ReferencedTable:  parts[0],
-				ReferencedColumn: parts[1],
-				OnDelete:         field.Tag.Get("ondelete"),
-				OnUpdate:         field.Tag.Get("onupdate"),
+		// Set length
+		if ormTag.Length > 0 {
+			column.Length = ormTag.Length
+		}
+
+		// Set default value
+		if ormTag.Default != "" {
+			column.Default = parseDefaultValue(ormTag.Default, field.Type)
+		}
+
+		// Set foreign key
+		if ormTag.ForeignKey != "" {
+			parts := strings.Split(ormTag.ForeignKey, ".")
+			if len(parts) == 2 {
+				column.ForeignKey = &ForeignKey{
+					ReferencedTable:  parts[0],
+					ReferencedColumn: parts[1],
+				}
+			}
+		}
+	} else {
+		// Fall back to old DB tag parsing for backward compatibility
+		column.Name = dbTag
+
+		// Extract primary key
+		if field.Tag.Get(TagPrimary) == "true" {
+			column.PrimaryKey = true
+			column.Nullable = false
+		}
+
+		// Extract auto increment
+		if field.Tag.Get(TagAutoIncr) == "true" {
+			column.AutoIncrement = true
+		}
+
+		// Extract unique constraint
+		if field.Tag.Get(TagUnique) == "true" {
+			column.Unique = true
+		}
+
+		// Extract index
+		if field.Tag.Get(TagIndex) == "true" {
+			column.Index = true
+		}
+
+		// Extract length for string types
+		if length := field.Tag.Get(TagLength); length != "" {
+			if l, err := parseInt(length); err == nil {
+				column.Length = l
+			}
+		}
+
+		// Extract default value
+		if defaultValue := field.Tag.Get(TagDefault); defaultValue != "" {
+			column.Default = parseDefaultValue(defaultValue, field.Type)
+		}
+
+		// Extract foreign key
+		if fk := field.Tag.Get(TagForeignKey); fk != "" {
+			parts := strings.Split(fk, ".")
+			if len(parts) == 2 {
+				column.ForeignKey = &ForeignKey{
+					ReferencedTable:  parts[0],
+					ReferencedColumn: parts[1],
+					OnDelete:         field.Tag.Get("ondelete"),
+					OnUpdate:         field.Tag.Get("onupdate"),
+				}
 			}
 		}
 	}
@@ -140,18 +278,38 @@ func (mm *MetadataManager) extractRelations(t reflect.Type, metadata *ModelMetad
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 
-		// Check for relation tags
-		if relationType := field.Tag.Get("relation"); relationType != "" {
+		// Check for relation tags (both old and new format)
+		relationType := field.Tag.Get("relation")
+		ormTagStr := field.Tag.Get(TagORM)
+
+		if relationType == "" && ormTagStr != "" {
+			// Parse ORM tag to check for relation
+			ormTag := parseORMTag(ormTagStr)
+			if ormTag.Relation != "" {
+				relationType = ormTag.Relation
+			}
+		}
+
+		if relationType != "" {
 			relation := &Relation{
 				Type:        parseRelationType(relationType),
 				TargetModel: field.Type,
 				Lazy:        field.Tag.Get("lazy") == "true",
 			}
 
-			// Extract foreign key information
-			if fk := field.Tag.Get("foreign_key"); fk != "" {
-				relation.ForeignKey = fk
+			// Extract foreign key information from ORM tag
+			if ormTagStr != "" {
+				ormTag := parseORMTag(ormTagStr)
+				if ormTag.ForeignKey != "" {
+					relation.ForeignKey = ormTag.ForeignKey
+				}
+			} else {
+				// Fall back to old tag format
+				if fk := field.Tag.Get("foreign_key"); fk != "" {
+					relation.ForeignKey = fk
+				}
 			}
+
 			if rk := field.Tag.Get("referenced_key"); rk != "" {
 				relation.ReferencedKey = rk
 			}
@@ -169,12 +327,28 @@ func (mm *MetadataManager) extractIndexes(t reflect.Type, metadata *ModelMetadat
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 
-		// Check for index tags
-		if indexName := field.Tag.Get("index_name"); indexName != "" {
+		// Check for index tags (both old and new format)
+		indexName := field.Tag.Get("index_name")
+		ormTagStr := field.Tag.Get(TagORM)
+
+		// Check if field has index in ORM tag
+		if ormTagStr != "" {
+			ormTag := parseORMTag(ormTagStr)
+			if ormTag.Index {
+				indexName = "idx_" + strings.ToLower(field.Name)
+			}
+		}
+
+		if indexName != "" {
+			columnName := field.Tag.Get(TagDB)
+			if columnName == "" {
+				columnName = strings.ToLower(field.Name)
+			}
+
 			index := Index{
 				Name:    indexName,
-				Columns: []string{field.Tag.Get("db")},
-				Unique:  field.Tag.Get("unique") == "true",
+				Columns: []string{columnName},
+				Unique:  field.Tag.Get(TagUnique) == "true",
 			}
 			metadata.Indexes = append(metadata.Indexes, index)
 		}

@@ -10,11 +10,11 @@ import (
 
 // TestUserForRepository for testing
 type TestUserForRepository struct {
-	ID       int    `db:"id" primary:"true" autoincrement:"true"`
-	Name     string `db:"name"`
-	Age      int    `db:"age"`
-	Email    string `db:"email" unique:"true"`
-	IsActive bool   `db:"is_active"`
+	ID       int    `orm:"pk,auto"`
+	Name     string `orm:"index"`
+	Email    string `orm:"unique"`
+	Age      int
+	IsActive bool `orm:"default:true"`
 }
 
 // MockDialectForRepository for testing

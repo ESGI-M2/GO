@@ -1,293 +1,275 @@
-# Go ORM - A Complete Relational ORM
+# Go ORM - A Full-Featured Relational ORM
 
-Un ORM (Object-Relational Mapping) complet écrit en Go, inspiré de Doctrine (PHP), sans dépendances externes. Conçu pour être réutilisable dans n'importe quel projet Go.
+A comprehensive, modular, and maintainable Object-Relational Mapping (ORM) library for Go, inspired by Doctrine in PHP. This ORM provides a fluent interface, supports multiple database dialects, and follows Go best practices.
 
-## 🚀 Fonctionnalités
+## Features
 
-### ✅ Implémentées
-- **Architecture modulaire** avec interfaces claires
-- **Gestion des métadonnées** automatique via reflection
-- **Query Builder fluent** avec chaînage de méthodes
-- **Pattern Repository** pour les opérations CRUD
-- **Support des transactions** avec rollback automatique
-- **Dialectes de base de données** (MySQL implémenté)
-- **Mapping automatique** Go ↔ SQL
-- **Support des relations** (clés étrangères)
-- **Requêtes SQL brutes** pour les cas complexes
-- **Tests unitaires complets**
+- **Multiple Database Support**: MySQL, PostgreSQL, SQLite (extensible)
+- **Fluent Query Builder**: Chainable methods for complex queries
+- **Repository Pattern**: Clean data access layer
+- **Transaction Support**: ACID-compliant transactions
+- **Migration System**: Database schema management
+- **Relationship Support**: One-to-one, one-to-many, many-to-many
+- **Advanced Tag System**: Concise and powerful model annotations
+- **Type Safety**: Full Go type safety with reflection
+- **Performance**: Optimized for high-performance applications
+- **Extensible**: Plugin architecture for custom dialects
 
-### 🔄 En cours de développement
-- Support PostgreSQL et SQLite
-- Relations avancées (One-to-Many, Many-to-Many)
-- Système de migrations automatiques
-- Cache et optimisations
-- Hooks et événements
-
-## 📦 Installation
+## Installation
 
 ```bash
-go get github.com/votre-username/go-orm
+go get github.com/your-username/go-orm
 ```
 
-## 🏗️ Architecture
+## Quick Start
 
-```
-project/
-├── orm/
-│   ├── core/              # Interfaces et implémentations principales
-│   │   ├── interfaces.go  # Définitions des interfaces
-│   │   ├── metadata.go    # Gestion des métadonnées
-│   │   ├── orm.go         # Implémentation principale
-│   │   ├── query_builder.go # Construction de requêtes
-│   │   └── repository.go  # Pattern Repository
-│   ├── sql/               # Composants SQL
-│   └── utils/             # Utilitaires
-├── dialect/               # Support des bases de données
-│   └── mysql.go          # Dialecte MySQL
-├── models/                # Modèles de données
-└── examples/              # Exemples d'utilisation
-```
+### 1. Define Your Models
 
-## 🎯 Utilisation Rapide
-
-### 1. Définir vos modèles
+Use the new concise ORM tag system:
 
 ```go
+package models
+
 type User struct {
-    ID        int       `db:"id" primary:"true" autoincrement:"true"`
-    Name      string    `db:"name"`
-    Email     string    `db:"email" unique:"true"`
-    Age       int       `db:"age"`
-    IsActive  bool      `db:"is_active"`
-    CreatedAt time.Time `db:"created_at"`
+    ID       int    `orm:"pk,auto"`           // Primary key, auto increment
+    Name     string `orm:"index"`              // Indexed field
+    Email    string `orm:"unique"`             // Unique constraint
+    Age      int    `orm:"default:18"`         // Default value
+    IsActive bool   `orm:"default:true"`       // Boolean with default
+    Created  string `orm:"column:created_at"`  // Custom column name
+}
+
+type Post struct {
+    ID      int    `orm:"pk,auto"`
+    Title   string `orm:"index"`
+    Content string
+    UserID  int    `orm:"fk:users.id"`        // Foreign key relationship
 }
 ```
 
-### 2. Initialiser l'ORM
+### 2. Initialize the ORM
 
 ```go
-// Créer le dialecte MySQL
-mysqlDialect := dialect.NewMySQLDialect()
+package main
 
-// Créer l'instance ORM
-orm := core.NewORM(mysqlDialect)
+import (
+    "project/orm/core"
+    "project/dialect"
+)
 
-// Configurer la connexion
-config := core.ConnectionConfig{
-    Driver:   "mysql",
-    Host:     "localhost",
-    Port:     3306,
-    Database: "myapp",
-    Username: "user",
-    Password: "password",
+func main() {
+    // Create MySQL dialect
+    mysqlDialect := dialect.NewMySQLDialect()
+    
+    // Create ORM instance
+    orm := core.NewORM(mysqlDialect)
+    
+    // Connect to database
+    config := core.ConnectionConfig{
+        Driver:   "mysql",
+        Host:     "localhost",
+        Port:     3306,
+        Database: "myapp",
+        Username: "root",
+        Password: "password",
+    }
+    
+    err := orm.Connect(config)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer orm.Close()
+    
+    // Register models
+    orm.RegisterModel(&User{})
+    orm.RegisterModel(&Post{})
+    
+    // Create tables
+    orm.Migrate()
 }
-
-// Se connecter
-if err := orm.Connect(config); err != nil {
-    log.Fatal(err)
-}
-defer orm.Close()
 ```
 
-### 3. Enregistrer les modèles
+### 3. Use the Repository Pattern
 
 ```go
-// Enregistrer les modèles
-if err := orm.RegisterModel(&User{}); err != nil {
-    log.Fatal(err)
-}
+// Get repository for User model
+repo := orm.Repository(&User{})
 
-// Créer les tables
-if err := orm.Migrate(); err != nil {
-    log.Fatal(err)
-}
-```
-
-### 4. Utiliser l'ORM
-
-#### Opérations CRUD basiques
-
-```go
-// Créer un utilisateur
+// Create a new user
 user := &User{
-    Name:      "John Doe",
-    Email:     "john@example.com",
-    Age:       30,
-    IsActive:  true,
-    CreatedAt: time.Now(),
+    Name:     "John Doe",
+    Email:    "john@example.com",
+    Age:      30,
+    IsActive: true,
 }
 
-// Sauvegarder (insert)
-if err := orm.Repository(&User{}).Save(user); err != nil {
-    log.Fatal(err)
-}
+// Save user (insert or update)
+err := repo.Save(user)
 
-// Trouver par ID
-foundUser, err := orm.Repository(&User{}).Find(user.ID)
-if err != nil {
-    log.Fatal(err)
-}
+// Find user by ID
+foundUser, err := repo.Find(1)
 
-// Mettre à jour
-user.Age = 31
-if err := orm.Repository(&User{}).Update(user); err != nil {
-    log.Fatal(err)
-}
+// Find all users
+allUsers, err := repo.FindAll()
 
-// Supprimer
-if err := orm.Repository(&User{}).Delete(user); err != nil {
-    log.Fatal(err)
-}
+// Find by criteria
+activeUsers, err := repo.FindBy(map[string]interface{}{
+    "is_active": true,
+    "age":       30,
+})
 ```
 
-#### Query Builder
+### 4. Use the Query Builder
 
 ```go
-// Requête avec conditions
-users, err := orm.Query(&User{}).
+// Complex queries with fluent interface
+results, err := orm.Query(&User{}).
+    Select("name", "email").
     Where("age", ">", 25).
     Where("is_active", "=", true).
     OrderBy("name", "ASC").
     Limit(10).
     Find()
 
-// Compter les résultats
-count, err := orm.Query(&User{}).
-    Where("is_active", "=", true).
-    Count()
-
-// Vérifier l'existence
-exists, err := orm.Query(&User{}).
-    Where("email", "=", "john@example.com").
-    Exists()
+// Raw SQL queries
+rawResults, err := orm.Raw("SELECT * FROM users WHERE age > ?", 25).Find()
 ```
 
-#### Repository Pattern
-
-```go
-repo := orm.Repository(&User{})
-
-// Trouver par critères
-users, err := repo.FindBy(map[string]interface{}{
-    "is_active": true,
-    "age":       30,
-})
-
-// Trouver un seul par critères
-user, err := repo.FindOneBy(map[string]interface{}{
-    "email": "john@example.com",
-})
-
-// Compter tous
-count, err := repo.Count()
-```
-
-#### Transactions
+### 5. Use Transactions
 
 ```go
 err := orm.Transaction(func(txORM core.ORM) error {
-    // Créer un utilisateur
-    user := &User{Name: "Alice", Email: "alice@example.com"}
-    if err := txORM.Repository(&User{}).Save(user); err != nil {
+    // Create user
+    user := &User{Name: "John", Email: "john@example.com"}
+    repo := txORM.Repository(user)
+    err := repo.Save(user)
+    if err != nil {
         return err
     }
     
-    // Créer un post lié à l'utilisateur
+    // Create post in same transaction
     post := &Post{Title: "Hello", UserID: user.ID}
-    if err := txORM.Repository(&Post{}).Save(post); err != nil {
-        return err
-    }
-    
-    return nil
+    postRepo := txORM.Repository(post)
+    return postRepo.Save(post)
 })
 ```
 
-#### SQL brut
+## ORM Tag System
 
-```go
-// Requête SQL brute
-results, err := orm.Raw("SELECT COUNT(*) as count FROM users WHERE age > ?", 25).Find()
+The new ORM tag system provides a concise and powerful way to define model metadata:
 
-// Requête complexe
-complexResults, err := orm.Raw(`
-    SELECT u.name, COUNT(p.id) as post_count 
-    FROM users u 
-    LEFT JOIN posts p ON u.id = p.user_id 
-    WHERE u.is_active = ? 
-    GROUP BY u.id, u.name
-`, true).Find()
-```
-
-## 🏷️ Tags de modèles
-
-### Tags de base
+### Basic Tags
 
 ```go
 type User struct {
-    ID        int    `db:"id" primary:"true" autoincrement:"true"`
-    Name      string `db:"name"`
-    Email     string `db:"email" unique:"true"`
-    Age       int    `db:"age" index:"true"`
-    IsActive  bool   `db:"is_active"`
+    ID       int    `orm:"pk,auto"`           // Primary key + auto increment
+    Name     string `orm:"index"`              // Indexed field
+    Email    string `orm:"unique"`             // Unique constraint
+    Age      int    `orm:"default:18"`         // Default value
+    IsActive bool   `orm:"default:true"`       // Boolean default
+    Created  string `orm:"column:created_at"`  // Custom column name
 }
 ```
 
-### Tags disponibles
+### Advanced Tags
 
-- `db:"column_name"` - Nom de la colonne en base
-- `primary:"true"` - Clé primaire
-- `autoincrement:"true"` - Auto-incrémentation
-- `unique:"true"` - Contrainte unique
-- `index:"true"` - Index sur la colonne
-- `length:"255"` - Longueur pour VARCHAR
-- `default:"value"` - Valeur par défaut
-- `foreign:"table.column"` - Clé étrangère
-- `ondelete:"CASCADE"` - Action ON DELETE
-- `onupdate:"CASCADE"` - Action ON UPDATE
-
-## 🧪 Tests
-
-```bash
-# Lancer tous les tests
-go test ./...
-
-# Tests avec couverture
-go test -cover ./...
-
-# Tests spécifiques
-go test ./orm/core -v
+```go
+type Post struct {
+    ID        int    `orm:"pk,auto"`
+    Title     string `orm:"column:post_title,index,length:255"`
+    Content   string `orm:"column:post_content"`
+    UserID    int    `orm:"fk:users.id"`                    // Foreign key
+    Status    string `orm:"default:draft,nullable"`          // Default + nullable
+    Tags      string `orm:"column:post_tags,length:500"`
+}
 ```
 
-## 📚 Exemples
+### Tag Reference
 
-Voir le dossier `examples/` pour des exemples complets d'utilisation.
+| Tag | Description | Example |
+|-----|-------------|---------|
+| `pk` | Primary key | `orm:"pk"` |
+| `auto` | Auto increment | `orm:"auto"` |
+| `unique` | Unique constraint | `orm:"unique"` |
+| `index` | Create index | `orm:"index"` |
+| `nullable` | Allow NULL values | `orm:"nullable"` |
+| `column:name` | Custom column name | `orm:"column:user_name"` |
+| `length:n` | Field length | `orm:"length:255"` |
+| `default:value` | Default value | `orm:"default:true"` |
+| `fk:table.column` | Foreign key | `orm:"fk:users.id"` |
 
-## 🤝 Contribution
+### Backward Compatibility
 
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commit les changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
+The ORM maintains full backward compatibility with the old tag system:
 
-## 📄 Licence
+```go
+// Old style (still supported)
+type User struct {
+    ID       int    `db:"id" primary:"true" autoincrement:"true"`
+    Name     string `db:"name" index:"true"`
+    Email    string `db:"email" unique:"true"`
+}
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+// New style (recommended)
+type User struct {
+    ID       int    `orm:"pk,auto"`
+    Name     string `orm:"index"`
+    Email    string `orm:"unique"`
+}
+```
 
-## 🎯 Roadmap
+## Architecture
 
-- [x] Architecture de base
-- [x] Query Builder
-- [x] Repository Pattern
-- [x] Transactions
-- [x] Support MySQL
-- [ ] Support PostgreSQL
-- [ ] Support SQLite
-- [ ] Relations avancées
-- [ ] Système de migrations
-- [ ] Cache et optimisations
-- [ ] Documentation complète
+The ORM follows a modular architecture:
 
-## 📞 Support
+```
+orm/
+├── core/           # Core ORM functionality
+│   ├── orm.go     # Main ORM implementation
+│   ├── metadata.go # Model metadata extraction
+│   ├── query_builder.go # Query builder
+│   └── repository.go # Repository pattern
+├── dialect/        # Database dialects
+│   ├── mysql.go    # MySQL implementation
+│   └── interface.go # Dialect interface
+└── sql/           # SQL generation utilities
+```
 
-Pour toute question ou problème, veuillez ouvrir une issue sur GitHub.
+## Testing
+
+Run the test suite:
+
+```bash
+go test ./...
+```
+
+Generate coverage report:
+
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Roadmap
+
+- [ ] PostgreSQL dialect
+- [ ] SQLite dialect
+- [ ] Advanced relationship support
+- [ ] Migration system
+- [ ] Connection pooling
+- [ ] Query caching
+- [ ] Code generation tools
+- [ ] Documentation generator

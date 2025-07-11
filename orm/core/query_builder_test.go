@@ -92,11 +92,11 @@ func (mt *MockTransactionForTest) QueryRow(query string, args ...interface{}) *s
 
 // TestUserForQueryBuilder for testing
 type TestUserForQueryBuilder struct {
-	ID       int    `db:"id" primary:"true" autoincrement:"true"`
-	Name     string `db:"name"`
-	Age      int    `db:"age"`
-	Email    string `db:"email" unique:"true"`
-	IsActive bool   `db:"is_active"`
+	ID       int    `orm:"pk,auto"`
+	Name     string `orm:"index"`
+	Email    string `orm:"unique"`
+	Age      int
+	IsActive bool `orm:"default:true"`
 }
 
 func TestQueryBuilderImpl_Select(t *testing.T) {
