@@ -1,10 +1,12 @@
-package core
+package metadata
 
 import (
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"project/orm/core/interfaces"
 )
 
 // Tag constants for better maintainability
@@ -12,10 +14,10 @@ const (
 	TagORM        = "orm"
 	TagDB         = "db"
 	TagPrimary    = "primary"
-	TagAutoIncr   = "autoincrement" // Changed from "auto_increment" to match old tags
+	TagAutoIncr   = "autoincrement"
 	TagUnique     = "unique"
 	TagIndex      = "index"
-	TagForeignKey = "foreign" // Changed from "foreign_key" to match old tags
+	TagForeignKey = "foreign"
 	TagRelation   = "relation"
 	TagColumn     = "column"
 	TagLength     = "length"
@@ -36,6 +38,199 @@ type ORMTag struct {
 	Nullable     bool
 	Relation     string
 	RelationType string
+}
+
+// extractColumn extracts column information from a struct field
+func (mm *Manager) extractColumn(field reflect.StructField) (*interfaces.Column, error) {
+	// Try ORM tag first, then fall back to DB tag for backward compatibility
+	ormTagStr := field.Tag.Get(TagORM)
+	dbTag := field.Tag.Get(TagDB)
+
+	if ormTagStr == "" && dbTag == "" {
+		return nil, nil
+	}
+
+	if ormTagStr == "-" || dbTag == "-" {
+		return nil, nil
+	}
+
+	column := &interfaces.Column{
+		Type:     getSQLType(field.Type),
+		Nullable: true, // Default to nullable
+	}
+
+	// Parse ORM tag if present
+	if ormTagStr != "" {
+		ormTag := parseORMTag(ormTagStr)
+
+		// Set column name
+		if ormTag.Column != "" {
+			column.Name = ormTag.Column
+		} else {
+			column.Name = strings.ToLower(field.Name)
+		}
+
+		// Set boolean flags
+		column.PrimaryKey = ormTag.PrimaryKey
+		column.AutoIncrement = ormTag.AutoIncr
+		column.Unique = ormTag.Unique
+		column.Index = ormTag.Index
+		column.Nullable = ormTag.Nullable
+
+		// Set length
+		if ormTag.Length > 0 {
+			column.Length = ormTag.Length
+		}
+
+		// Set default value
+		if ormTag.Default != "" {
+			column.Default = parseDefaultValue(ormTag.Default, field.Type)
+		}
+
+		// Set foreign key
+		if ormTag.ForeignKey != "" {
+			parts := strings.Split(ormTag.ForeignKey, ".")
+			if len(parts) == 2 {
+				column.ForeignKey = &interfaces.ForeignKey{
+					ReferencedTable:  parts[0],
+					ReferencedColumn: parts[1],
+				}
+			}
+		}
+	} else {
+		// Fall back to old DB tag parsing for backward compatibility
+		column.Name = dbTag
+
+		// Extract primary key
+		if field.Tag.Get(TagPrimary) == "true" {
+			column.PrimaryKey = true
+			column.Nullable = false
+		}
+
+		// Extract auto increment
+		if field.Tag.Get(TagAutoIncr) == "true" {
+			column.AutoIncrement = true
+		}
+
+		// Extract unique constraint
+		if field.Tag.Get(TagUnique) == "true" {
+			column.Unique = true
+		}
+
+		// Extract index
+		if field.Tag.Get(TagIndex) == "true" {
+			column.Index = true
+		}
+
+		// Extract length for string types
+		if length := field.Tag.Get(TagLength); length != "" {
+			if l, err := parseInt(length); err == nil {
+				column.Length = l
+			}
+		}
+
+		// Extract default value
+		if defaultValue := field.Tag.Get(TagDefault); defaultValue != "" {
+			column.Default = parseDefaultValue(defaultValue, field.Type)
+		}
+
+		// Extract foreign key
+		if fk := field.Tag.Get(TagForeignKey); fk != "" {
+			parts := strings.Split(fk, ".")
+			if len(parts) == 2 {
+				column.ForeignKey = &interfaces.ForeignKey{
+					ReferencedTable:  parts[0],
+					ReferencedColumn: parts[1],
+					OnDelete:         field.Tag.Get("ondelete"),
+					OnUpdate:         field.Tag.Get("onupdate"),
+				}
+			}
+		}
+	}
+
+	return column, nil
+}
+
+// extractRelations extracts relationship information from struct fields
+func (mm *Manager) extractRelations(t reflect.Type, metadata *interfaces.ModelMetadata) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		// Check for relation tags (both old and new format)
+		relationType := field.Tag.Get("relation")
+		ormTagStr := field.Tag.Get(TagORM)
+
+		if relationType == "" && ormTagStr != "" {
+			// Parse ORM tag to check for relation
+			ormTag := parseORMTag(ormTagStr)
+			if ormTag.Relation != "" {
+				relationType = ormTag.Relation
+			}
+		}
+
+		if relationType != "" {
+			relation := &interfaces.Relation{
+				Type:        parseRelationType(relationType),
+				TargetModel: field.Type,
+				Lazy:        field.Tag.Get("lazy") == "true",
+			}
+
+			// Extract foreign key information from ORM tag
+			if ormTagStr != "" {
+				ormTag := parseORMTag(ormTagStr)
+				if ormTag.ForeignKey != "" {
+					relation.ForeignKey = ormTag.ForeignKey
+				}
+			} else {
+				// Fall back to old tag format
+				if fk := field.Tag.Get("foreign_key"); fk != "" {
+					relation.ForeignKey = fk
+				}
+			}
+
+			if rk := field.Tag.Get("referenced_key"); rk != "" {
+				relation.ReferencedKey = rk
+			}
+			if jt := field.Tag.Get("join_table"); jt != "" {
+				relation.JoinTable = jt
+			}
+
+			metadata.Relations[field.Name] = relation
+		}
+	}
+}
+
+// extractIndexes extracts index information from struct tags
+func (mm *Manager) extractIndexes(t reflect.Type, metadata *interfaces.ModelMetadata) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		// Check for index tags (both old and new format)
+		indexName := field.Tag.Get("index_name")
+		ormTagStr := field.Tag.Get(TagORM)
+
+		// Check if field has index in ORM tag
+		if ormTagStr != "" {
+			ormTag := parseORMTag(ormTagStr)
+			if ormTag.Index {
+				indexName = "idx_" + strings.ToLower(field.Name)
+			}
+		}
+
+		if indexName != "" {
+			columnName := field.Tag.Get(TagDB)
+			if columnName == "" {
+				columnName = strings.ToLower(field.Name)
+			}
+
+			index := interfaces.Index{
+				Name:    indexName,
+				Columns: []string{columnName},
+				Unique:  field.Tag.Get(TagUnique) == "true",
+			}
+			metadata.Indexes = append(metadata.Indexes, index)
+		}
+	}
 }
 
 // parseORMTag parses ORM tags like "primary,auto" or "column:title,index"
@@ -95,264 +290,17 @@ func parseORMTag(tag string) *ORMTag {
 	return ormTag
 }
 
-// MetadataManager handles model metadata extraction and caching
-type MetadataManager struct {
-	metadata map[reflect.Type]*ModelMetadata
-}
-
-// NewMetadataManager creates a new metadata manager
-func NewMetadataManager() *MetadataManager {
-	return &MetadataManager{
-		metadata: make(map[reflect.Type]*ModelMetadata),
-	}
-}
-
-// ExtractMetadata extracts metadata from a model struct
-func (mm *MetadataManager) ExtractMetadata(model interface{}) (*ModelMetadata, error) {
-	t := reflect.TypeOf(model)
-
-	// Handle pointer types
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	// Check if metadata is already cached
-	if cached, exists := mm.metadata[t]; exists {
-		return cached, nil
-	}
-
-	metadata := &ModelMetadata{
-		Type:      t,
-		TableName: getTableName(t),
-		Columns:   make([]Column, 0),
-		Relations: make(map[string]*Relation),
-		Indexes:   make([]Index, 0),
-	}
-
-	// Extract columns from struct fields
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		column, err := mm.extractColumn(field)
-		if err != nil {
-			return nil, fmt.Errorf("error extracting column from field %s: %w", field.Name, err)
-		}
-
-		if column != nil {
-			metadata.Columns = append(metadata.Columns, *column)
-
-			// Track primary key and auto increment
-			if column.PrimaryKey {
-				metadata.PrimaryKey = column.Name
-			}
-			if column.AutoIncrement {
-				metadata.AutoIncrement = column.Name
-			}
+// getTableName extracts the table name from a struct
+func getTableName(t reflect.Type) string {
+	// Check for table tag on the struct
+	if t.NumField() > 0 {
+		if tableTag := t.Field(0).Tag.Get("table"); tableTag != "" {
+			return tableTag
 		}
 	}
 
-	// Extract relations
-	mm.extractRelations(t, metadata)
-
-	// Extract indexes
-	mm.extractIndexes(t, metadata)
-
-	// Cache the metadata
-	mm.metadata[t] = metadata
-
-	return metadata, nil
-}
-
-// extractColumn extracts column information from a struct field
-func (mm *MetadataManager) extractColumn(field reflect.StructField) (*Column, error) {
-	// Try ORM tag first, then fall back to DB tag for backward compatibility
-	ormTagStr := field.Tag.Get(TagORM)
-	dbTag := field.Tag.Get(TagDB)
-
-	if ormTagStr == "" && dbTag == "" {
-		return nil, nil
-	}
-
-	if ormTagStr == "-" || dbTag == "-" {
-		return nil, nil
-	}
-
-	column := &Column{
-		Type:     getSQLType(field.Type),
-		Nullable: true, // Default to nullable
-	}
-
-	// Parse ORM tag if present
-	if ormTagStr != "" {
-		ormTag := parseORMTag(ormTagStr)
-
-		// Set column name
-		if ormTag.Column != "" {
-			column.Name = ormTag.Column
-		} else {
-			column.Name = strings.ToLower(field.Name)
-		}
-
-		// Set boolean flags
-		column.PrimaryKey = ormTag.PrimaryKey
-		column.AutoIncrement = ormTag.AutoIncr
-		column.Unique = ormTag.Unique
-		column.Index = ormTag.Index
-		column.Nullable = ormTag.Nullable
-
-		// Set length
-		if ormTag.Length > 0 {
-			column.Length = ormTag.Length
-		}
-
-		// Set default value
-		if ormTag.Default != "" {
-			column.Default = parseDefaultValue(ormTag.Default, field.Type)
-		}
-
-		// Set foreign key
-		if ormTag.ForeignKey != "" {
-			parts := strings.Split(ormTag.ForeignKey, ".")
-			if len(parts) == 2 {
-				column.ForeignKey = &ForeignKey{
-					ReferencedTable:  parts[0],
-					ReferencedColumn: parts[1],
-				}
-			}
-		}
-	} else {
-		// Fall back to old DB tag parsing for backward compatibility
-		column.Name = dbTag
-
-		// Extract primary key
-		if field.Tag.Get(TagPrimary) == "true" {
-			column.PrimaryKey = true
-			column.Nullable = false
-		}
-
-		// Extract auto increment
-		if field.Tag.Get(TagAutoIncr) == "true" {
-			column.AutoIncrement = true
-		}
-
-		// Extract unique constraint
-		if field.Tag.Get(TagUnique) == "true" {
-			column.Unique = true
-		}
-
-		// Extract index
-		if field.Tag.Get(TagIndex) == "true" {
-			column.Index = true
-		}
-
-		// Extract length for string types
-		if length := field.Tag.Get(TagLength); length != "" {
-			if l, err := parseInt(length); err == nil {
-				column.Length = l
-			}
-		}
-
-		// Extract default value
-		if defaultValue := field.Tag.Get(TagDefault); defaultValue != "" {
-			column.Default = parseDefaultValue(defaultValue, field.Type)
-		}
-
-		// Extract foreign key
-		if fk := field.Tag.Get(TagForeignKey); fk != "" {
-			parts := strings.Split(fk, ".")
-			if len(parts) == 2 {
-				column.ForeignKey = &ForeignKey{
-					ReferencedTable:  parts[0],
-					ReferencedColumn: parts[1],
-					OnDelete:         field.Tag.Get("ondelete"),
-					OnUpdate:         field.Tag.Get("onupdate"),
-				}
-			}
-		}
-	}
-
-	return column, nil
-}
-
-// extractRelations extracts relationship information from struct fields
-func (mm *MetadataManager) extractRelations(t reflect.Type, metadata *ModelMetadata) {
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-
-		// Check for relation tags (both old and new format)
-		relationType := field.Tag.Get("relation")
-		ormTagStr := field.Tag.Get(TagORM)
-
-		if relationType == "" && ormTagStr != "" {
-			// Parse ORM tag to check for relation
-			ormTag := parseORMTag(ormTagStr)
-			if ormTag.Relation != "" {
-				relationType = ormTag.Relation
-			}
-		}
-
-		if relationType != "" {
-			relation := &Relation{
-				Type:        parseRelationType(relationType),
-				TargetModel: field.Type,
-				Lazy:        field.Tag.Get("lazy") == "true",
-			}
-
-			// Extract foreign key information from ORM tag
-			if ormTagStr != "" {
-				ormTag := parseORMTag(ormTagStr)
-				if ormTag.ForeignKey != "" {
-					relation.ForeignKey = ormTag.ForeignKey
-				}
-			} else {
-				// Fall back to old tag format
-				if fk := field.Tag.Get("foreign_key"); fk != "" {
-					relation.ForeignKey = fk
-				}
-			}
-
-			if rk := field.Tag.Get("referenced_key"); rk != "" {
-				relation.ReferencedKey = rk
-			}
-			if jt := field.Tag.Get("join_table"); jt != "" {
-				relation.JoinTable = jt
-			}
-
-			metadata.Relations[field.Name] = relation
-		}
-	}
-}
-
-// extractIndexes extracts index information from struct tags
-func (mm *MetadataManager) extractIndexes(t reflect.Type, metadata *ModelMetadata) {
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-
-		// Check for index tags (both old and new format)
-		indexName := field.Tag.Get("index_name")
-		ormTagStr := field.Tag.Get(TagORM)
-
-		// Check if field has index in ORM tag
-		if ormTagStr != "" {
-			ormTag := parseORMTag(ormTagStr)
-			if ormTag.Index {
-				indexName = "idx_" + strings.ToLower(field.Name)
-			}
-		}
-
-		if indexName != "" {
-			columnName := field.Tag.Get(TagDB)
-			if columnName == "" {
-				columnName = strings.ToLower(field.Name)
-			}
-
-			index := Index{
-				Name:    indexName,
-				Columns: []string{columnName},
-				Unique:  field.Tag.Get(TagUnique) == "true",
-			}
-			metadata.Indexes = append(metadata.Indexes, index)
-		}
-	}
+	// Default to lowercase struct name
+	return strings.ToLower(t.Name())
 }
 
 // getSQLType maps Go types to SQL types
@@ -389,32 +337,19 @@ func getSQLType(t reflect.Type) string {
 	}
 }
 
-// getTableName extracts the table name from a struct
-func getTableName(t reflect.Type) string {
-	// Check for table tag on the struct
-	if t.NumField() > 0 {
-		if tableTag := t.Field(0).Tag.Get("table"); tableTag != "" {
-			return tableTag
-		}
-	}
-
-	// Default to lowercase struct name
-	return strings.ToLower(t.Name())
-}
-
 // parseRelationType parses relation type from string
-func parseRelationType(relationType string) RelationType {
+func parseRelationType(relationType string) interfaces.RelationType {
 	switch strings.ToLower(relationType) {
 	case "one_to_one":
-		return OneToOne
+		return interfaces.OneToOne
 	case "one_to_many":
-		return OneToMany
+		return interfaces.OneToMany
 	case "many_to_one":
-		return ManyToOne
+		return interfaces.ManyToOne
 	case "many_to_many":
-		return ManyToMany
+		return interfaces.ManyToMany
 	default:
-		return OneToOne
+		return interfaces.OneToOne
 	}
 }
 
@@ -449,14 +384,4 @@ func parseFloat(s string) (float64, error) {
 	var f float64
 	_, err := fmt.Sscanf(s, "%f", &f)
 	return f, err
-}
-
-// GetMetadata returns cached metadata for a model
-func (mm *MetadataManager) GetMetadata(model interface{}) (*ModelMetadata, error) {
-	return mm.ExtractMetadata(model)
-}
-
-// ClearCache clears the metadata cache
-func (mm *MetadataManager) ClearCache() {
-	mm.metadata = make(map[reflect.Type]*ModelMetadata)
 }

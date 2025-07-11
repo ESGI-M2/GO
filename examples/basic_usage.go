@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"project/dialect"
-	"project/orm/core"
+	"project/orm"
 )
 
 // Example models with various features
@@ -41,26 +41,22 @@ func main() {
 	mysqlDialect := dialect.NewMySQLDialect()
 
 	// Create ORM instance
-	orm := core.NewORM(mysqlDialect)
+	ormInstance := orm.New(mysqlDialect)
 
 	// Configure database connection
-	config := core.ConnectionConfig{
-		Driver:          "mysql",
-		Host:            os.Getenv("MYSQL_HOST"),
-		Port:            3306,
-		Database:        os.Getenv("MYSQL_DATABASE"),
-		Username:        os.Getenv("MYSQL_USER"),
-		Password:        os.Getenv("MYSQL_PASSWORD"),
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: 300,
+	config := orm.ConnectionConfig{
+		Host:     os.Getenv("MYSQL_HOST"),
+		Port:     3306,
+		Database: os.Getenv("MYSQL_DATABASE"),
+		Username: os.Getenv("MYSQL_USER"),
+		Password: os.Getenv("MYSQL_PASSWORD"),
 	}
 
 	// Connect to database
-	if err := orm.Connect(config); err != nil {
+	if err := ormInstance.Connect(config); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer orm.Close()
+	defer ormInstance.Close()
 
 	fmt.Println("✅ Connected to database successfully")
 
@@ -72,7 +68,7 @@ func main() {
 	}
 
 	for _, model := range models {
-		if err := orm.RegisterModel(model); err != nil {
+		if err := ormInstance.RegisterModel(model); err != nil {
 			log.Fatalf("Failed to register model: %v", err)
 		}
 	}
@@ -80,31 +76,31 @@ func main() {
 	fmt.Println("✅ Models registered successfully")
 
 	// Create tables
-	if err := orm.Migrate(); err != nil {
+	if err := ormInstance.Migrate(); err != nil {
 		log.Fatalf("Failed to migrate: %v", err)
 	}
 
 	fmt.Println("✅ Database tables created successfully")
 
 	// Example 1: Basic CRUD operations
-	exampleBasicCRUD(orm)
+	exampleBasicCRUD(ormInstance)
 
 	// Example 2: Query Builder
-	exampleQueryBuilder(orm)
+	exampleQueryBuilder(ormInstance)
 
 	// Example 3: Repository Pattern
-	exampleRepositoryPattern(orm)
+	exampleRepositoryPattern(ormInstance)
 
 	// Example 4: Transactions
-	exampleTransactions(orm)
+	exampleTransactions(ormInstance)
 
 	// Example 5: Raw SQL
-	exampleRawSQL(orm)
+	exampleRawSQL(ormInstance)
 
 	fmt.Println("\n🎉 All examples completed successfully!")
 }
 
-func exampleBasicCRUD(orm core.ORM) {
+func exampleBasicCRUD(ormInstance orm.ORM) {
 	fmt.Println("\n📝 Example 1: Basic CRUD Operations")
 
 	// Create a new user
@@ -118,7 +114,8 @@ func exampleBasicCRUD(orm core.ORM) {
 	}
 
 	// Save user (insert)
-	if err := orm.Repository(&User{}).Save(user); err != nil {
+	userRepo := ormInstance.Repository(&User{})
+	if err := userRepo.Save(user); err != nil {
 		log.Printf("Failed to save user: %v", err)
 		return
 	}
@@ -126,7 +123,7 @@ func exampleBasicCRUD(orm core.ORM) {
 	fmt.Printf("✅ User created with ID: %d\n", user.ID)
 
 	// Find user by ID
-	foundUser, err := orm.Repository(&User{}).Find(user.ID)
+	foundUser, err := userRepo.Find(user.ID)
 	if err != nil {
 		log.Printf("Failed to find user: %v", err)
 		return
@@ -141,7 +138,7 @@ func exampleBasicCRUD(orm core.ORM) {
 	user.Age = 31
 	user.UpdatedAt = time.Now()
 
-	if err := orm.Repository(&User{}).Update(user); err != nil {
+	if err := userRepo.Update(user); err != nil {
 		log.Printf("Failed to update user: %v", err)
 		return
 	}
@@ -149,7 +146,7 @@ func exampleBasicCRUD(orm core.ORM) {
 	fmt.Println("✅ User updated successfully")
 
 	// Find all users
-	allUsers, err := orm.Repository(&User{}).FindAll()
+	allUsers, err := userRepo.FindAll()
 	if err != nil {
 		log.Printf("Failed to find all users: %v", err)
 		return
@@ -158,7 +155,7 @@ func exampleBasicCRUD(orm core.ORM) {
 	fmt.Printf("✅ Found %d users\n", len(allUsers))
 }
 
-func exampleQueryBuilder(orm core.ORM) {
+func exampleQueryBuilder(ormInstance orm.ORM) {
 	fmt.Println("\n🔍 Example 2: Query Builder")
 
 	// Create some test data
@@ -171,11 +168,12 @@ func exampleQueryBuilder(orm core.ORM) {
 	for _, user := range users {
 		user.CreatedAt = time.Now()
 		user.UpdatedAt = time.Now()
-		orm.Repository(&User{}).Save(user)
+		userRepo := ormInstance.Repository(&User{})
+		userRepo.Save(user)
 	}
 
 	// Query with conditions
-	results, err := orm.Query(&User{}).
+	results, err := ormInstance.Query(&User{}).
 		Where("age", ">", 25).
 		Where("is_active", "=", true).
 		OrderBy("name", "ASC").
@@ -190,7 +188,7 @@ func exampleQueryBuilder(orm core.ORM) {
 	fmt.Printf("✅ Query returned %d active users over 25\n", len(results))
 
 	// Count query
-	count, err := orm.Query(&User{}).
+	count, err := ormInstance.Query(&User{}).
 		Where("is_active", "=", true).
 		Count()
 
@@ -202,10 +200,10 @@ func exampleQueryBuilder(orm core.ORM) {
 	fmt.Printf("✅ Found %d active users\n", count)
 }
 
-func exampleRepositoryPattern(orm core.ORM) {
+func exampleRepositoryPattern(ormInstance orm.ORM) {
 	fmt.Println("\n🏪 Example 3: Repository Pattern")
 
-	repo := orm.Repository(&User{})
+	repo := ormInstance.Repository(&User{})
 
 	// Find by criteria
 	users, err := repo.FindBy(map[string]interface{}{
@@ -245,10 +243,10 @@ func exampleRepositoryPattern(orm core.ORM) {
 	fmt.Printf("✅ Total users: %d\n", count)
 }
 
-func exampleTransactions(orm core.ORM) {
+func exampleTransactions(ormInstance orm.ORM) {
 	fmt.Println("\n💼 Example 4: Transactions")
 
-	err := orm.Transaction(func(txORM core.ORM) error {
+	err := ormInstance.Transaction(func(txORM orm.ORM) error {
 		// Create a user within transaction
 		user := &User{
 			Name:      "Transaction User",
@@ -288,11 +286,11 @@ func exampleTransactions(orm core.ORM) {
 	fmt.Println("✅ Transaction test completed")
 }
 
-func exampleRawSQL(orm core.ORM) {
+func exampleRawSQL(ormInstance orm.ORM) {
 	fmt.Println("\n🔧 Example 5: Raw SQL")
 
 	// Raw SQL query
-	results, err := orm.Raw("SELECT COUNT(*) as count FROM users WHERE age > ?", 25).Find()
+	results, err := ormInstance.Raw("SELECT COUNT(*) as count FROM users WHERE age > ?", 25).Find()
 	if err != nil {
 		log.Printf("Failed to execute raw query: %v", err)
 		return
@@ -303,7 +301,7 @@ func exampleRawSQL(orm core.ORM) {
 	}
 
 	// Raw SQL with complex query
-	complexResults, err := orm.Raw(`
+	complexResults, err := ormInstance.Raw(`
 		SELECT u.name, COUNT(p.id) as post_count 
 		FROM users u 
 		LEFT JOIN posts p ON u.id = p.user_id 

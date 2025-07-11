@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"project/orm/core/interfaces"
 	"reflect"
 	"strings"
 	"time"
-
-	"project/orm/core"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
 
-// MySQLDialect implements the core.Dialect interface for MySQL
+// MySQLDialect implements the interfaces.Dialect interface for MySQL
 type MySQLDialect struct {
 	db *sql.DB
 }
@@ -27,7 +26,7 @@ func NewMySQLDialect() *MySQLDialect {
 }
 
 // Connect establishes a connection to MySQL database
-func (m *MySQLDialect) Connect(config core.ConnectionConfig) error {
+func (m *MySQLDialect) Connect(config interfaces.ConnectionConfig) error {
 	var err error
 
 	// Load environment variables if .env file exists
@@ -67,16 +66,10 @@ func (m *MySQLDialect) Connect(config core.ConnectionConfig) error {
 		return fmt.Errorf("failed to connect to MySQL: %w", err)
 	}
 
-	// Configure connection pool
-	if config.MaxOpenConns > 0 {
-		m.db.SetMaxOpenConns(config.MaxOpenConns)
-	}
-	if config.MaxIdleConns > 0 {
-		m.db.SetMaxIdleConns(config.MaxIdleConns)
-	}
-	if config.ConnMaxLifetime > 0 {
-		m.db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
-	}
+	// Configure connection pool with default values
+	m.db.SetMaxOpenConns(25)
+	m.db.SetMaxIdleConns(5)
+	m.db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Test connection
 	if err := m.Ping(); err != nil {
@@ -128,7 +121,7 @@ func (m *MySQLDialect) QueryRow(query string, args ...interface{}) *sql.Row {
 }
 
 // Begin starts a new transaction
-func (m *MySQLDialect) Begin() (core.Transaction, error) {
+func (m *MySQLDialect) Begin() (interfaces.Transaction, error) {
 	if m.db == nil {
 		return nil, fmt.Errorf("database connection not established")
 	}
@@ -140,7 +133,7 @@ func (m *MySQLDialect) Begin() (core.Transaction, error) {
 }
 
 // BeginTx starts a new transaction with options
-func (m *MySQLDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (core.Transaction, error) {
+func (m *MySQLDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (interfaces.Transaction, error) {
 	if m.db == nil {
 		return nil, fmt.Errorf("database connection not established")
 	}
@@ -152,7 +145,7 @@ func (m *MySQLDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (core.T
 }
 
 // CreateTable creates a table with the given columns
-func (m *MySQLDialect) CreateTable(tableName string, columns []core.Column) error {
+func (m *MySQLDialect) CreateTable(tableName string, columns []interfaces.Column) error {
 	var columnDefs []string
 
 	for _, col := range columns {
@@ -222,7 +215,7 @@ func (m *MySQLDialect) GetPlaceholder(index int) string {
 }
 
 // buildColumnDefinition builds a MySQL column definition
-func (m *MySQLDialect) buildColumnDefinition(col core.Column) string {
+func (m *MySQLDialect) buildColumnDefinition(col interfaces.Column) string {
 	var parts []string
 
 	// Column name and type
@@ -315,8 +308,7 @@ var DB *sql.DB
 // InitMySQL initializes the legacy global DB variable
 func InitMySQL() {
 	dialect := NewMySQLDialect()
-	config := core.ConnectionConfig{
-		Driver:   "mysql",
+	config := interfaces.ConnectionConfig{
 		Host:     os.Getenv("MYSQL_HOST"),
 		Port:     3306,
 		Database: os.Getenv("MYSQL_DATABASE"),

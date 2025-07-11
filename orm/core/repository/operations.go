@@ -1,131 +1,10 @@
-package core
+package repository
 
 import (
 	"fmt"
 	"reflect"
 	"strings"
 )
-
-// RepositoryImpl implements the Repository interface
-type RepositoryImpl struct {
-	orm      *ORMImpl
-	metadata *ModelMetadata
-	err      error
-}
-
-// Find finds a record by ID
-func (r *RepositoryImpl) Find(id interface{}) (interface{}, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	if r.metadata == nil {
-		return nil, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-	query = query.Where(r.metadata.PrimaryKey, "=", id)
-
-	results, err := query.Find()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find record: %w", err)
-	}
-
-	if len(results) == 0 {
-		return nil, nil
-	}
-
-	return r.mapToStruct(results[0])
-}
-
-// FindAll finds all records
-func (r *RepositoryImpl) FindAll() ([]interface{}, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	if r.metadata == nil {
-		return nil, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-	results, err := query.Find()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find all records: %w", err)
-	}
-
-	var entities []interface{}
-	for _, result := range results {
-		entity, err := r.mapToStruct(result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to map result to struct: %w", err)
-		}
-		entities = append(entities, entity)
-	}
-
-	return entities, nil
-}
-
-// FindBy finds records by criteria
-func (r *RepositoryImpl) FindBy(criteria map[string]interface{}) ([]interface{}, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	if r.metadata == nil {
-		return nil, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-
-	for field, value := range criteria {
-		query = query.Where(field, "=", value)
-	}
-
-	results, err := query.Find()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find records by criteria: %w", err)
-	}
-
-	var entities []interface{}
-	for _, result := range results {
-		entity, err := r.mapToStruct(result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to map result to struct: %w", err)
-		}
-		entities = append(entities, entity)
-	}
-
-	return entities, nil
-}
-
-// FindOneBy finds one record by criteria
-func (r *RepositoryImpl) FindOneBy(criteria map[string]interface{}) (interface{}, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-
-	if r.metadata == nil {
-		return nil, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-
-	for field, value := range criteria {
-		query = query.Where(field, "=", value)
-	}
-
-	result, err := query.FindOne()
-	if err != nil {
-		return nil, fmt.Errorf("failed to find one record by criteria: %w", err)
-	}
-
-	if result == nil {
-		return nil, nil
-	}
-
-	return r.mapToStruct(result)
-}
 
 // Save saves an entity (insert or update)
 func (r *RepositoryImpl) Save(entity interface{}) error {
@@ -143,7 +22,15 @@ func (r *RepositoryImpl) Save(entity interface{}) error {
 		entityValue = entityValue.Elem()
 	}
 
-	idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+	// Find field by name (case-insensitive)
+	var idField reflect.Value
+	for i := 0; i < entityValue.NumField(); i++ {
+		field := entityValue.Type().Field(i)
+		if strings.EqualFold(field.Name, r.metadata.PrimaryKey) {
+			idField = entityValue.Field(i)
+			break
+		}
+	}
 	if !idField.IsValid() {
 		return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
 	}
@@ -181,7 +68,15 @@ func (r *RepositoryImpl) Delete(entity interface{}) error {
 		entityValue = entityValue.Elem()
 	}
 
-	idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+	// Find field by name (case-insensitive)
+	var idField reflect.Value
+	for i := 0; i < entityValue.NumField(); i++ {
+		field := entityValue.Type().Field(i)
+		if strings.EqualFold(field.Name, r.metadata.PrimaryKey) {
+			idField = entityValue.Field(i)
+			break
+		}
+	}
 	if !idField.IsValid() {
 		return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
 	}
@@ -189,7 +84,7 @@ func (r *RepositoryImpl) Delete(entity interface{}) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s = ?",
 		r.metadata.TableName, r.metadata.PrimaryKey)
 
-	_, err := r.orm.dialect.Exec(query, idField.Interface())
+	_, err := r.orm.GetDialect().Exec(query, idField.Interface())
 	if err != nil {
 		return fmt.Errorf("failed to delete entity: %w", err)
 	}
@@ -218,42 +113,12 @@ func (r *RepositoryImpl) DeleteBy(criteria map[string]interface{}) error {
 	whereClause := strings.Join(conditions, " AND ")
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s", r.metadata.TableName, whereClause)
 
-	_, err := r.orm.dialect.Exec(query, args...)
+	_, err := r.orm.GetDialect().Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete records by criteria: %w", err)
 	}
 
 	return nil
-}
-
-// Count counts all records
-func (r *RepositoryImpl) Count() (int64, error) {
-	if r.err != nil {
-		return 0, r.err
-	}
-
-	if r.metadata == nil {
-		return 0, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-	return query.Count()
-}
-
-// Exists checks if a record exists by ID
-func (r *RepositoryImpl) Exists(id interface{}) (bool, error) {
-	if r.err != nil {
-		return false, r.err
-	}
-
-	if r.metadata == nil {
-		return false, fmt.Errorf("metadata not available")
-	}
-
-	query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
-	query = query.Where(r.metadata.PrimaryKey, "=", id)
-
-	return query.Exists()
 }
 
 // insert inserts a new entity
@@ -264,23 +129,31 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 	}
 
 	var columns []string
-	var placeholders []string
 	var values []interface{}
+	var placeholders []string
 
 	for _, column := range r.metadata.Columns {
-		// Skip auto-increment fields
-		if column.AutoIncrement {
-			continue
+		// Find field by name (case-insensitive)
+		var field reflect.Value
+		for i := 0; i < entityValue.NumField(); i++ {
+			fieldType := entityValue.Type().Field(i)
+			if strings.EqualFold(fieldType.Name, column.Name) {
+				field = entityValue.Field(i)
+				break
+			}
 		}
-
-		field := entityValue.FieldByName(column.Name)
 		if !field.IsValid() {
 			continue
 		}
 
+		// Skip auto-increment fields for insert
+		if column.AutoIncrement {
+			continue
+		}
+
 		columns = append(columns, column.Name)
-		placeholders = append(placeholders, "?")
 		values = append(values, field.Interface())
+		placeholders = append(placeholders, "?")
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
@@ -288,22 +161,9 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
 
-	result, err := r.orm.dialect.Exec(query, values...)
+	_, err := r.orm.GetDialect().Exec(query, values...)
 	if err != nil {
 		return fmt.Errorf("failed to insert entity: %w", err)
-	}
-
-	// Set the generated ID if auto-increment
-	if r.metadata.AutoIncrement != "" {
-		lastID, err := result.LastInsertId()
-		if err != nil {
-			return fmt.Errorf("failed to get last insert ID: %w", err)
-		}
-
-		idField := entityValue.FieldByName(r.metadata.PrimaryKey)
-		if idField.IsValid() && idField.CanSet() {
-			idField.SetInt(lastID)
-		}
 	}
 
 	return nil
@@ -311,35 +171,47 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 
 // update updates an existing entity
 func (r *RepositoryImpl) update(entity interface{}) error {
-	if r.metadata == nil {
-		return fmt.Errorf("metadata not available")
-	}
-
 	entityValue := reflect.ValueOf(entity)
 	if entityValue.Kind() == reflect.Ptr {
 		entityValue = entityValue.Elem()
 	}
 
-	var setClauses []string
+	var sets []string
 	var values []interface{}
 
 	for _, column := range r.metadata.Columns {
-		// Skip primary key and auto-increment fields
-		if column.PrimaryKey || column.AutoIncrement {
+		// Find field by name (case-insensitive)
+		var field reflect.Value
+		for i := 0; i < entityValue.NumField(); i++ {
+			fieldType := entityValue.Type().Field(i)
+			if strings.EqualFold(fieldType.Name, column.Name) {
+				field = entityValue.Field(i)
+				break
+			}
+		}
+		if !field.IsValid() || (field.Kind() == reflect.Ptr && field.IsNil()) {
+			continue // skip unset or nil fields
+		}
+
+		// Skip primary key for update
+		if column.Name == r.metadata.PrimaryKey {
 			continue
 		}
 
-		field := entityValue.FieldByName(column.Name)
-		if !field.IsValid() {
-			continue
-		}
-
-		setClauses = append(setClauses, fmt.Sprintf("%s = ?", column.Name))
+		sets = append(sets, fmt.Sprintf("%s = ?", column.Name))
 		values = append(values, field.Interface())
 	}
 
-	// Add the primary key value for the WHERE clause
-	idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+	// Add WHERE condition for primary key
+	// Find field by name (case-insensitive)
+	var idField reflect.Value
+	for i := 0; i < entityValue.NumField(); i++ {
+		field := entityValue.Type().Field(i)
+		if strings.EqualFold(field.Name, r.metadata.PrimaryKey) {
+			idField = entityValue.Field(i)
+			break
+		}
+	}
 	if !idField.IsValid() {
 		return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
 	}
@@ -347,10 +219,10 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?",
 		r.metadata.TableName,
-		strings.Join(setClauses, ", "),
+		strings.Join(sets, ", "),
 		r.metadata.PrimaryKey)
 
-	_, err := r.orm.dialect.Exec(query, values...)
+	_, err := r.orm.GetDialect().Exec(query, values...)
 	if err != nil {
 		return fmt.Errorf("failed to update entity: %w", err)
 	}
@@ -358,7 +230,7 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 	return nil
 }
 
-// mapToStruct maps a database result map to a struct
+// mapToStruct maps a database result to a struct
 func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}, error) {
 	if r.metadata == nil {
 		return nil, fmt.Errorf("metadata not available")
@@ -368,9 +240,18 @@ func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}
 	entity := reflect.New(r.metadata.Type).Interface()
 	entityValue := reflect.ValueOf(entity).Elem()
 
+	// Map database columns to struct fields
 	for _, column := range r.metadata.Columns {
-		field := entityValue.FieldByName(column.Name)
-		if !field.IsValid() || !field.CanSet() {
+		// Find field by name (case-insensitive)
+		var field reflect.Value
+		for i := 0; i < entityValue.NumField(); i++ {
+			fieldType := entityValue.Type().Field(i)
+			if strings.EqualFold(fieldType.Name, column.Name) {
+				field = entityValue.Field(i)
+				break
+			}
+		}
+		if !field.IsValid() {
 			continue
 		}
 
@@ -379,7 +260,6 @@ func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}
 			continue
 		}
 
-		// Convert the value to the appropriate type
 		if err := setFieldValue(field, value); err != nil {
 			return nil, fmt.Errorf("failed to set field %s: %w", column.Name, err)
 		}
@@ -388,7 +268,7 @@ func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}
 	return entity, nil
 }
 
-// isZeroValue checks if a value is the zero value for its type
+// isZeroValue checks if a reflect.Value is a zero value
 func isZeroValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Bool:
@@ -408,7 +288,7 @@ func isZeroValue(v reflect.Value) bool {
 	}
 }
 
-// setFieldValue sets a field value with type conversion
+// setFieldValue sets a field value with proper type conversion
 func setFieldValue(field reflect.Value, value interface{}) error {
 	if value == nil {
 		field.Set(reflect.Zero(field.Type()))
@@ -424,7 +304,7 @@ func setFieldValue(field reflect.Value, value interface{}) error {
 		return nil
 	}
 
-	// Handle common type conversions
+	// Handle type conversions
 	switch fieldType.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		switch v := value.(type) {
@@ -460,24 +340,16 @@ func setFieldValue(field reflect.Value, value interface{}) error {
 			return fmt.Errorf("cannot convert %v to %s", value, fieldType)
 		}
 	case reflect.String:
-		switch v := value.(type) {
-		case string:
-			field.SetString(v)
-		case []byte:
-			field.SetString(string(v))
-		default:
-			return fmt.Errorf("cannot convert %v to %s", value, fieldType)
+		if str, ok := value.(string); ok {
+			field.SetString(str)
+		} else {
+			return fmt.Errorf("cannot convert %v to string", value)
 		}
 	case reflect.Bool:
-		switch v := value.(type) {
-		case bool:
-			field.SetBool(v)
-		case int64:
-			field.SetBool(v != 0)
-		case int:
-			field.SetBool(v != 0)
-		default:
-			return fmt.Errorf("cannot convert %v to %s", value, fieldType)
+		if b, ok := value.(bool); ok {
+			field.SetBool(b)
+		} else {
+			return fmt.Errorf("cannot convert %v to bool", value)
 		}
 	default:
 		return fmt.Errorf("unsupported field type: %s", fieldType)

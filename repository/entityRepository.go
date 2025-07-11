@@ -1,14 +1,55 @@
 package repository
 
 import (
-	"project/memory"
+	data "project/memory"
 	"reflect"
-	"project/orm/utils"
 )
 
 func FindAll(table string) []map[string]interface{} {
 	slice := data.Store[table]
-	return utils.StructSliceToMapSlice(slice)
+	return structSliceToMapSlice(slice)
+}
+
+// structSliceToMapSlice converts a slice of structs to a slice of maps
+func structSliceToMapSlice(slice interface{}) []map[string]interface{} {
+	if slice == nil {
+		return []map[string]interface{}{}
+	}
+
+	sliceValue := reflect.ValueOf(slice)
+	if sliceValue.Kind() != reflect.Slice {
+		return []map[string]interface{}{}
+	}
+
+	result := make([]map[string]interface{}, sliceValue.Len())
+	for i := 0; i < sliceValue.Len(); i++ {
+		item := sliceValue.Index(i)
+		if item.Kind() == reflect.Ptr {
+			item = item.Elem()
+		}
+
+		if item.Kind() == reflect.Struct {
+			result[i] = structToMap(item)
+		}
+	}
+
+	return result
+}
+
+// structToMap converts a struct to a map
+func structToMap(v reflect.Value) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Type().Field(i)
+		value := v.Field(i)
+
+		if value.CanInterface() {
+			result[field.Name] = value.Interface()
+		}
+	}
+
+	return result
 }
 
 func FindBy(table string, field string, value interface{}) []map[string]interface{} {

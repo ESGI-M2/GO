@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"project/dialect"
-	"project/orm/core"
+	"project/orm"
 )
 
 // User model with new ORM tags
@@ -22,11 +22,10 @@ func main() {
 	mysqlDialect := dialect.NewMySQLDialect()
 
 	// Create ORM instance
-	orm := core.NewORM(mysqlDialect)
+	ormInstance := orm.New(mysqlDialect)
 
 	// Connect to database
-	config := core.ConnectionConfig{
-		Driver:   "mysql",
+	config := orm.ConnectionConfig{
 		Host:     "localhost",
 		Port:     3306,
 		Database: "test_db",
@@ -34,20 +33,20 @@ func main() {
 		Password: "password",
 	}
 
-	err := orm.Connect(config)
+	err := ormInstance.Connect(config)
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer orm.Close()
+	defer ormInstance.Close()
 
 	// Register model
-	err = orm.RegisterModel(&User{})
+	err = ormInstance.RegisterModel(&User{})
 	if err != nil {
 		log.Fatalf("Failed to register model: %v", err)
 	}
 
 	// Create table
-	err = orm.CreateTable(&User{})
+	err = ormInstance.CreateTable(&User{})
 	if err != nil {
 		log.Fatalf("Failed to create table: %v", err)
 	}
@@ -61,7 +60,7 @@ func main() {
 	}
 
 	// Save user
-	repo := orm.Repository(user)
+	repo := ormInstance.Repository(&User{})
 	err = repo.Save(user)
 	if err != nil {
 		log.Fatalf("Failed to save user: %v", err)
@@ -80,7 +79,7 @@ func main() {
 	}
 
 	// Query builder example
-	query := orm.Query(&User{}).
+	query := ormInstance.Query(&User{}).
 		Where("age", ">", 25).
 		OrderBy("name", "ASC").
 		Limit(10)
@@ -93,7 +92,7 @@ func main() {
 	fmt.Printf("Found %d users over 25\n", len(results))
 
 	// Transaction example
-	err = orm.Transaction(func(txORM core.ORM) error {
+	err = ormInstance.Transaction(func(txORM orm.ORM) error {
 		user2 := &User{
 			Name:     "Jane Doe",
 			Email:    "jane@example.com",
