@@ -1,7 +1,7 @@
 package repository
 
 import (
-	data "project/memory"
+	data "github.com/ESGI-M2/GO/memory"
 	"reflect"
 )
 

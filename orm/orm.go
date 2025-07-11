@@ -1,8 +1,8 @@
 package orm
 
 import (
-	"project/orm/core/connection"
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/connection"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // ORM provides the main interface for the ORM

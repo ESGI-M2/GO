@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // BuilderImpl implements the QueryBuilder interface

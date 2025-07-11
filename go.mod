@@ -1,4 +1,4 @@
-module project
+module github.com/ESGI-M2/GO
 
 go 1.24.1
 

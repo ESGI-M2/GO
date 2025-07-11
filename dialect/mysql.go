@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 	"reflect"
 	"strings"
 	"time"

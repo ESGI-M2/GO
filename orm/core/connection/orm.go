@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"sync"
 
-	"project/orm/core/interfaces"
-	"project/orm/core/metadata"
-	"project/orm/core/query"
-	"project/orm/core/repository"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/metadata"
+	"github.com/ESGI-M2/GO/orm/core/query"
+	"github.com/ESGI-M2/GO/orm/core/repository"
 )
 
 // ORMImpl implements the ORM interface

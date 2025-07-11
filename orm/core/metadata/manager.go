@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // Manager handles model metadata extraction and caching

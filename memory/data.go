@@ -1,6 +1,6 @@
 package data
 
-import "project/models"
+import "github.com/ESGI-M2/GO/models"
 
 var Store = map[string]interface{}{
 	"users": &Users,

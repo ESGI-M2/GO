@@ -3,9 +3,9 @@ package unit
 import (
 	"testing"
 
-	"project/orm"
-	"project/orm/core/interfaces"
-	"project/orm/dialect"
+	"github.com/ESGI-M2/GO/orm"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/dialect"
 )
 
 type QueryTestModel struct {

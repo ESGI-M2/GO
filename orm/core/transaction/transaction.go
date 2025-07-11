@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"project/orm/core/connection"
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/connection"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // TransactionDialect wraps a transaction to implement the Dialect interface

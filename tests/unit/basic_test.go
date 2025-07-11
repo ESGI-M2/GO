@@ -3,8 +3,8 @@ package unit
 import (
 	"testing"
 
-	"project/orm"
-	"project/orm/dialect"
+	"github.com/ESGI-M2/GO/orm"
+	"github.com/ESGI-M2/GO/orm/dialect"
 )
 
 // TestUser represents a test user model

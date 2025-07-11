@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"project/orm/core/interfaces"
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // Tag constants for better maintainability
