@@ -1,0 +1,3148 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>dialect: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">project/dialect/mysql.go (0.0%)</option>
+				
+				<option value="file1">project/examples/basic_usage.go (0.0%)</option>
+				
+				<option value="file2">project/main.go (0.0%)</option>
+				
+				<option value="file3">project/orm/core/metadata.go (72.8%)</option>
+				
+				<option value="file4">project/orm/core/orm.go (61.5%)</option>
+				
+				<option value="file5">project/orm/core/query_builder.go (69.8%)</option>
+				
+				<option value="file6">project/orm/core/repository.go (55.4%)</option>
+				
+				<option value="file7">project/orm/sql/components/insert/into.go (0.0%)</option>
+				
+				<option value="file8">project/orm/sql/components/insert/setcolumns.go (0.0%)</option>
+				
+				<option value="file9">project/orm/sql/components/queries/from.go (0.0%)</option>
+				
+				<option value="file10">project/orm/sql/components/queries/groupby.go (0.0%)</option>
+				
+				<option value="file11">project/orm/sql/components/queries/having.go (0.0%)</option>
+				
+				<option value="file12">project/orm/sql/components/queries/join.go (0.0%)</option>
+				
+				<option value="file13">project/orm/sql/components/queries/limit.go (0.0%)</option>
+				
+				<option value="file14">project/orm/sql/components/queries/orderby.go (0.0%)</option>
+				
+				<option value="file15">project/orm/sql/components/queries/select.go (0.0%)</option>
+				
+				<option value="file16">project/orm/sql/components/queries/where.go (0.0%)</option>
+				
+				<option value="file17">project/orm/sql/insertbuilder.go (30.0%)</option>
+				
+				<option value="file18">project/orm/sql/querybuilder.go (49.1%)</option>
+				
+				<option value="file19">project/orm/utils/reflect.go (0.0%)</option>
+				
+				<option value="file20">project/repository/entityRepository.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package dialect
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "log"
+        "os"
+        "reflect"
+        "strings"
+        "time"
+
+        "project/orm/core"
+
+        _ "github.com/go-sql-driver/mysql"
+        "github.com/joho/godotenv"
+)
+
+// MySQLDialect implements the core.Dialect interface for MySQL
+type MySQLDialect struct {
+        db *sql.DB
+}
+
+// NewMySQLDialect creates a new MySQL dialect instance
+func NewMySQLDialect() *MySQLDialect <span class="cov0" title="0">{
+        return &amp;MySQLDialect{}
+}</span>
+
+// Connect establishes a connection to MySQL database
+func (m *MySQLDialect) Connect(config core.ConnectionConfig) error <span class="cov0" title="0">{
+        var err error
+
+        // Load environment variables if .env file exists
+        godotenv.Load("../.env")
+
+        // Use config values or fallback to environment variables
+        user := config.Username
+        if user == "" </span><span class="cov0" title="0">{
+                user = os.Getenv("MYSQL_USER")
+        }</span>
+
+        <span class="cov0" title="0">pass := config.Password
+        if pass == "" </span><span class="cov0" title="0">{
+                pass = os.Getenv("MYSQL_PASSWORD")
+        }</span>
+
+        <span class="cov0" title="0">host := config.Host
+        if host == "" </span><span class="cov0" title="0">{
+                host = os.Getenv("MYSQL_HOST")
+        }</span>
+
+        <span class="cov0" title="0">database := config.Database
+        if database == "" </span><span class="cov0" title="0">{
+                database = os.Getenv("MYSQL_DATABASE")
+        }</span>
+
+        <span class="cov0" title="0">port := config.Port
+        if port == 0 </span><span class="cov0" title="0">{
+                port = 3306
+        }</span>
+
+        <span class="cov0" title="0">dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&amp;loc=Local",
+                user, pass, host, port, database)
+
+        m.db, err = sql.Open("mysql", dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to MySQL: %w", err)
+        }</span>
+
+        // Configure connection pool
+        <span class="cov0" title="0">if config.MaxOpenConns &gt; 0 </span><span class="cov0" title="0">{
+                m.db.SetMaxOpenConns(config.MaxOpenConns)
+        }</span>
+        <span class="cov0" title="0">if config.MaxIdleConns &gt; 0 </span><span class="cov0" title="0">{
+                m.db.SetMaxIdleConns(config.MaxIdleConns)
+        }</span>
+        <span class="cov0" title="0">if config.ConnMaxLifetime &gt; 0 </span><span class="cov0" title="0">{
+                m.db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
+        }</span>
+
+        // Test connection
+        <span class="cov0" title="0">if err := m.Ping(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to ping MySQL: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Println("Connected to MySQL successfully")
+        return nil</span>
+}
+
+// Close closes the database connection
+func (m *MySQLDialect) Close() error <span class="cov0" title="0">{
+        if m.db != nil </span><span class="cov0" title="0">{
+                return m.db.Close()
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Ping tests the database connection
+func (m *MySQLDialect) Ping() error <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("database connection not established")
+        }</span>
+        <span class="cov0" title="0">return m.db.Ping()</span>
+}
+
+// Exec executes a query without returning rows
+func (m *MySQLDialect) Exec(query string, args ...interface{}) (sql.Result, error) <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("database connection not established")
+        }</span>
+        <span class="cov0" title="0">return m.db.Exec(query, args...)</span>
+}
+
+// Query executes a query that returns rows
+func (m *MySQLDialect) Query(query string, args ...interface{}) (*sql.Rows, error) <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("database connection not established")
+        }</span>
+        <span class="cov0" title="0">return m.db.Query(query, args...)</span>
+}
+
+// QueryRow executes a query that returns a single row
+func (m *MySQLDialect) QueryRow(query string, args ...interface{}) *sql.Row <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">return m.db.QueryRow(query, args...)</span>
+}
+
+// Begin starts a new transaction
+func (m *MySQLDialect) Begin() (core.Transaction, error) <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("database connection not established")
+        }</span>
+        <span class="cov0" title="0">tx, err := m.db.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;MySQLTransaction{tx: tx}, nil</span>
+}
+
+// BeginTx starts a new transaction with options
+func (m *MySQLDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (core.Transaction, error) <span class="cov0" title="0">{
+        if m.db == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("database connection not established")
+        }</span>
+        <span class="cov0" title="0">tx, err := m.db.BeginTx(ctx, opts)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return &amp;MySQLTransaction{tx: tx}, nil</span>
+}
+
+// CreateTable creates a table with the given columns
+func (m *MySQLDialect) CreateTable(tableName string, columns []core.Column) error <span class="cov0" title="0">{
+        var columnDefs []string
+
+        for _, col := range columns </span><span class="cov0" title="0">{
+                def := m.buildColumnDefinition(col)
+                columnDefs = append(columnDefs, def)
+        }</span>
+
+        <span class="cov0" title="0">query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                tableName, strings.Join(columnDefs, ",\n  "))
+
+        _, err := m.Exec(query)
+        return err</span>
+}
+
+// DropTable drops a table
+func (m *MySQLDialect) DropTable(tableName string) error <span class="cov0" title="0">{
+        query := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+        _, err := m.Exec(query)
+        return err
+}</span>
+
+// TableExists checks if a table exists
+func (m *MySQLDialect) TableExists(tableName string) (bool, error) <span class="cov0" title="0">{
+        query := "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?"
+        var count int
+        err := m.QueryRow(query, tableName).Scan(&amp;count)
+        return count &gt; 0, err
+}</span>
+
+// GetSQLType maps Go types to MySQL SQL types
+func (m *MySQLDialect) GetSQLType(goType reflect.Type) string <span class="cov0" title="0">{
+        switch goType.Kind() </span>{
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:<span class="cov0" title="0">
+                return "INT"</span>
+        case reflect.Int64:<span class="cov0" title="0">
+                return "BIGINT"</span>
+        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:<span class="cov0" title="0">
+                return "INT UNSIGNED"</span>
+        case reflect.Uint64:<span class="cov0" title="0">
+                return "BIGINT UNSIGNED"</span>
+        case reflect.Float32:<span class="cov0" title="0">
+                return "FLOAT"</span>
+        case reflect.Float64:<span class="cov0" title="0">
+                return "DOUBLE"</span>
+        case reflect.String:<span class="cov0" title="0">
+                return "VARCHAR(255)"</span>
+        case reflect.Bool:<span class="cov0" title="0">
+                return "TINYINT(1)"</span>
+        case reflect.Struct:<span class="cov0" title="0">
+                if goType == reflect.TypeOf(time.Time{}) </span><span class="cov0" title="0">{
+                        return "DATETIME"
+                }</span>
+                <span class="cov0" title="0">return "TEXT"</span>
+        case reflect.Slice:<span class="cov0" title="0">
+                if goType.Elem().Kind() == reflect.Uint8 </span><span class="cov0" title="0">{
+                        return "BLOB"
+                }</span>
+                <span class="cov0" title="0">return "TEXT"</span>
+        default:<span class="cov0" title="0">
+                return "TEXT"</span>
+        }
+}
+
+// GetPlaceholder returns the placeholder for parameterized queries
+func (m *MySQLDialect) GetPlaceholder(index int) string <span class="cov0" title="0">{
+        return "?"
+}</span>
+
+// buildColumnDefinition builds a MySQL column definition
+func (m *MySQLDialect) buildColumnDefinition(col core.Column) string <span class="cov0" title="0">{
+        var parts []string
+
+        // Column name and type
+        typeDef := col.Type
+        if col.Length &gt; 0 &amp;&amp; (strings.Contains(typeDef, "VARCHAR") || strings.Contains(typeDef, "CHAR")) </span><span class="cov0" title="0">{
+                typeDef = fmt.Sprintf("%s(%d)", typeDef, col.Length)
+        }</span>
+        <span class="cov0" title="0">parts = append(parts, fmt.Sprintf("%s %s", col.Name, typeDef))
+
+        // Nullable constraint
+        if !col.Nullable </span><span class="cov0" title="0">{
+                parts = append(parts, "NOT NULL")
+        }</span>
+
+        // Auto increment
+        <span class="cov0" title="0">if col.AutoIncrement </span><span class="cov0" title="0">{
+                parts = append(parts, "AUTO_INCREMENT")
+        }</span>
+
+        // Default value
+        <span class="cov0" title="0">if col.Default != nil </span><span class="cov0" title="0">{
+                defaultVal := fmt.Sprintf("%v", col.Default)
+                if col.Type == "VARCHAR" || col.Type == "TEXT" </span><span class="cov0" title="0">{
+                        defaultVal = fmt.Sprintf("'%s'", defaultVal)
+                }</span>
+                <span class="cov0" title="0">parts = append(parts, fmt.Sprintf("DEFAULT %s", defaultVal))</span>
+        }
+
+        // Primary key
+        <span class="cov0" title="0">if col.PrimaryKey </span><span class="cov0" title="0">{
+                parts = append(parts, "PRIMARY KEY")
+        }</span>
+
+        // Unique constraint
+        <span class="cov0" title="0">if col.Unique </span><span class="cov0" title="0">{
+                parts = append(parts, "UNIQUE")
+        }</span>
+
+        // Foreign key
+        <span class="cov0" title="0">if col.ForeignKey != nil </span><span class="cov0" title="0">{
+                fkDef := fmt.Sprintf("FOREIGN KEY (%s) REFERENCES %s(%s)",
+                        col.Name, col.ForeignKey.ReferencedTable, col.ForeignKey.ReferencedColumn)
+
+                if col.ForeignKey.OnDelete != "" </span><span class="cov0" title="0">{
+                        fkDef += fmt.Sprintf(" ON DELETE %s", col.ForeignKey.OnDelete)
+                }</span>
+                <span class="cov0" title="0">if col.ForeignKey.OnUpdate != "" </span><span class="cov0" title="0">{
+                        fkDef += fmt.Sprintf(" ON UPDATE %s", col.ForeignKey.OnUpdate)
+                }</span>
+
+                <span class="cov0" title="0">parts = append(parts, fkDef)</span>
+        }
+
+        <span class="cov0" title="0">return strings.Join(parts, " ")</span>
+}
+
+// MySQLTransaction implements core.Transaction for MySQL
+type MySQLTransaction struct {
+        tx *sql.Tx
+}
+
+// Commit commits the transaction
+func (mt *MySQLTransaction) Commit() error <span class="cov0" title="0">{
+        return mt.tx.Commit()
+}</span>
+
+// Rollback rolls back the transaction
+func (mt *MySQLTransaction) Rollback() error <span class="cov0" title="0">{
+        return mt.tx.Rollback()
+}</span>
+
+// Exec executes a query within the transaction
+func (mt *MySQLTransaction) Exec(query string, args ...interface{}) (sql.Result, error) <span class="cov0" title="0">{
+        return mt.tx.Exec(query, args...)
+}</span>
+
+// Query executes a query that returns rows within the transaction
+func (mt *MySQLTransaction) Query(query string, args ...interface{}) (*sql.Rows, error) <span class="cov0" title="0">{
+        return mt.tx.Query(query, args...)
+}</span>
+
+// QueryRow executes a query that returns a single row within the transaction
+func (mt *MySQLTransaction) QueryRow(query string, args ...interface{}) *sql.Row <span class="cov0" title="0">{
+        return mt.tx.QueryRow(query, args...)
+}</span>
+
+// Legacy function for backward compatibility
+var DB *sql.DB
+
+// InitMySQL initializes the legacy global DB variable
+func InitMySQL() <span class="cov0" title="0">{
+        dialect := NewMySQLDialect()
+        config := core.ConnectionConfig{
+                Driver:   "mysql",
+                Host:     os.Getenv("MYSQL_HOST"),
+                Port:     3306,
+                Database: os.Getenv("MYSQL_DATABASE"),
+                Username: os.Getenv("MYSQL_USER"),
+                Password: os.Getenv("MYSQL_PASSWORD"),
+        }
+
+        if err := dialect.Connect(config); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to connect to MySQL: %v", err)
+        }</span>
+
+        // Set the legacy DB variable for backward compatibility
+        <span class="cov0" title="0">DB = dialect.db</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "fmt"
+        "log"
+        "os"
+        "time"
+
+        "project/dialect"
+        "project/orm/core"
+)
+
+// Example models with various features
+type User struct {
+        ID        int       `db:"id" primary:"true" autoincrement:"true"`
+        Name      string    `db:"name"`
+        Email     string    `db:"email" unique:"true"`
+        Age       int       `db:"age"`
+        IsActive  bool      `db:"is_active"`
+        CreatedAt time.Time `db:"created_at"`
+        UpdatedAt time.Time `db:"updated_at"`
+}
+
+type Post struct {
+        ID        int       `db:"id" primary:"true" autoincrement:"true"`
+        Title     string    `db:"title"`
+        Content   string    `db:"content"`
+        UserID    int       `db:"user_id" foreign:"users.id"`
+        Published bool      `db:"published"`
+        CreatedAt time.Time `db:"created_at"`
+}
+
+type Category struct {
+        ID          int    `db:"id" primary:"true" autoincrement:"true"`
+        Name        string `db:"name" unique:"true"`
+        Description string `db:"description"`
+}
+
+func main() <span class="cov0" title="0">{
+        // Initialize MySQL dialect
+        mysqlDialect := dialect.NewMySQLDialect()
+
+        // Create ORM instance
+        orm := core.NewORM(mysqlDialect)
+
+        // Configure database connection
+        config := core.ConnectionConfig{
+                Driver:          "mysql",
+                Host:            os.Getenv("MYSQL_HOST"),
+                Port:            3306,
+                Database:        os.Getenv("MYSQL_DATABASE"),
+                Username:        os.Getenv("MYSQL_USER"),
+                Password:        os.Getenv("MYSQL_PASSWORD"),
+                MaxOpenConns:    10,
+                MaxIdleConns:    5,
+                ConnMaxLifetime: 300,
+        }
+
+        // Connect to database
+        if err := orm.Connect(config); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to connect to database: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer orm.Close()
+
+        fmt.Println("✅ Connected to database successfully")
+
+        // Register models
+        models := []interface{}{
+                &amp;User{},
+                &amp;Post{},
+                &amp;Category{},
+        }
+
+        for _, model := range models </span><span class="cov0" title="0">{
+                if err := orm.RegisterModel(model); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to register model: %v", err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">fmt.Println("✅ Models registered successfully")
+
+        // Create tables
+        if err := orm.Migrate(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to migrate: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ Database tables created successfully")
+
+        // Example 1: Basic CRUD operations
+        exampleBasicCRUD(orm)
+
+        // Example 2: Query Builder
+        exampleQueryBuilder(orm)
+
+        // Example 3: Repository Pattern
+        exampleRepositoryPattern(orm)
+
+        // Example 4: Transactions
+        exampleTransactions(orm)
+
+        // Example 5: Raw SQL
+        exampleRawSQL(orm)
+
+        fmt.Println("\n🎉 All examples completed successfully!")</span>
+}
+
+func exampleBasicCRUD(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n📝 Example 1: Basic CRUD Operations")
+
+        // Create a new user
+        user := &amp;User{
+                Name:      "John Doe",
+                Email:     "john@example.com",
+                Age:       30,
+                IsActive:  true,
+                CreatedAt: time.Now(),
+                UpdatedAt: time.Now(),
+        }
+
+        // Save user (insert)
+        if err := orm.Repository(&amp;User{}).Save(user); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to save user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ User created with ID: %d\n", user.ID)
+
+        // Find user by ID
+        foundUser, err := orm.Repository(&amp;User{}).Find(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if foundUser != nil </span><span class="cov0" title="0">{
+                userPtr := foundUser.(*User)
+                fmt.Printf("✅ Found user: %s (%s)\n", userPtr.Name, userPtr.Email)
+        }</span>
+
+        // Update user
+        <span class="cov0" title="0">user.Age = 31
+        user.UpdatedAt = time.Now()
+
+        if err := orm.Repository(&amp;User{}).Update(user); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to update user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ User updated successfully")
+
+        // Find all users
+        allUsers, err := orm.Repository(&amp;User{}).FindAll()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find all users: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Found %d users\n", len(allUsers))</span>
+}
+
+func exampleQueryBuilder(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🔍 Example 2: Query Builder")
+
+        // Create some test data
+        users := []*User{
+                {Name: "Alice", Email: "alice@example.com", Age: 25, IsActive: true},
+                {Name: "Bob", Email: "bob@example.com", Age: 35, IsActive: true},
+                {Name: "Charlie", Email: "charlie@example.com", Age: 28, IsActive: false},
+        }
+
+        for _, user := range users </span><span class="cov0" title="0">{
+                user.CreatedAt = time.Now()
+                user.UpdatedAt = time.Now()
+                orm.Repository(&amp;User{}).Save(user)
+        }</span>
+
+        // Query with conditions
+        <span class="cov0" title="0">results, err := orm.Query(&amp;User{}).
+                Where("age", "&gt;", 25).
+                Where("is_active", "=", true).
+                OrderBy("name", "ASC").
+                Limit(10).
+                Find()
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute query: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Query returned %d active users over 25\n", len(results))
+
+        // Count query
+        count, err := orm.Query(&amp;User{}).
+                Where("is_active", "=", true).
+                Count()
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to count users: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Found %d active users\n", count)</span>
+}
+
+func exampleRepositoryPattern(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🏪 Example 3: Repository Pattern")
+
+        repo := orm.Repository(&amp;User{})
+
+        // Find by criteria
+        users, err := repo.FindBy(map[string]interface{}{
+                "is_active": true,
+                "age":       30,
+        })
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find users by criteria: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Repository found %d users matching criteria\n", len(users))
+
+        // Find one by criteria
+        user, err := repo.FindOneBy(map[string]interface{}{
+                "email": "john@example.com",
+        })
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find user by email: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if user != nil </span><span class="cov0" title="0">{
+                userPtr := user.(*User)
+                fmt.Printf("✅ Found user by email: %s\n", userPtr.Name)
+        }</span>
+
+        // Count all users
+        <span class="cov0" title="0">count, err := repo.Count()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to count users: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Total users: %d\n", count)</span>
+}
+
+func exampleTransactions(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n💼 Example 4: Transactions")
+
+        err := orm.Transaction(func(txORM core.ORM) error </span><span class="cov0" title="0">{
+                // Create a user within transaction
+                user := &amp;User{
+                        Name:      "Transaction User",
+                        Email:     "tx@example.com",
+                        Age:       25,
+                        IsActive:  true,
+                        CreatedAt: time.Now(),
+                        UpdatedAt: time.Now(),
+                }
+
+                if err := txORM.Repository(&amp;User{}).Save(user); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to save user in transaction: %w", err)
+                }</span>
+
+                // Create a post within the same transaction
+                <span class="cov0" title="0">post := &amp;Post{
+                        Title:     "Transaction Post",
+                        Content:   "This post was created in a transaction",
+                        UserID:    user.ID,
+                        Published: true,
+                        CreatedAt: time.Now(),
+                }
+
+                if err := txORM.Repository(&amp;Post{}).Save(post); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to save post in transaction: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">fmt.Println("✅ Transaction completed successfully")
+                return nil</span>
+        })
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Transaction failed: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ Transaction test completed")</span>
+}
+
+func exampleRawSQL(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🔧 Example 5: Raw SQL")
+
+        // Raw SQL query
+        results, err := orm.Raw("SELECT COUNT(*) as count FROM users WHERE age &gt; ?", 25).Find()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute raw query: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if len(results) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Printf("✅ Raw query count: %v\n", results[0]["count"])
+        }</span>
+
+        // Raw SQL with complex query
+        <span class="cov0" title="0">complexResults, err := orm.Raw(`
+                SELECT u.name, COUNT(p.id) as post_count 
+                FROM users u 
+                LEFT JOIN posts p ON u.id = p.user_id 
+                WHERE u.is_active = ? 
+                GROUP BY u.id, u.name
+        `, true).Find()
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute complex raw query: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Complex raw query returned %d results\n", len(complexResults))</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import (
+        "fmt"
+        "log"
+        "os"
+
+        "project/dialect"
+        "project/models"
+        "project/orm/core"
+)
+
+func main() <span class="cov0" title="0">{
+        // Create MySQL dialect
+        mysqlDialect := dialect.NewMySQLDialect()
+
+        // Create ORM instance
+        orm := core.NewORM(mysqlDialect)
+
+        // Connect to database
+        config := core.ConnectionConfig{
+                Driver:          "mysql",
+                Host:            os.Getenv("MYSQL_HOST"),
+                Port:            3306,
+                Database:        os.Getenv("MYSQL_DATABASE"),
+                Username:        os.Getenv("MYSQL_USER"),
+                Password:        os.Getenv("MYSQL_PASSWORD"),
+                MaxOpenConns:    10,
+                MaxIdleConns:    5,
+                ConnMaxLifetime: 300,
+        }
+
+        if err := orm.Connect(config); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to connect to database: %v", err)
+        }</span>
+        <span class="cov0" title="0">defer orm.Close()
+
+        // Register models
+        if err := orm.RegisterModel(&amp;models.User{}); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to register User model: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := orm.RegisterModel(&amp;models.Post{}); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to register Post model: %v", err)
+        }</span>
+
+        // Create tables
+        <span class="cov0" title="0">if err := orm.Migrate(); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to migrate: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ Database tables created successfully!")
+
+        // Test CRUD operations
+        testUserOperations(orm)
+        testQueryBuilder(orm)
+        testRepositoryPattern(orm)
+        testTransactions(orm)</span>
+}
+
+func testUserOperations(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🧪 Testing User CRUD operations...")
+
+        // Create a new user
+        user := &amp;models.User{
+                Name:     "John Doe",
+                Age:      30,
+                IsActive: true,
+        }
+
+        // Save user (insert)
+        if err := orm.Repository(&amp;models.User{}).Save(user); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to save user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ User created with ID: %d\n", user.ID)
+
+        // Find user by ID
+        foundUser, err := orm.Repository(&amp;models.User{}).Find(user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if foundUser != nil </span><span class="cov0" title="0">{
+                userPtr := foundUser.(*models.User)
+                fmt.Printf("✅ Found user: %s (Age: %d, Active: %t)\n",
+                        userPtr.Name, userPtr.Age, userPtr.IsActive)
+        }</span>
+
+        // Update user
+        <span class="cov0" title="0">user.Age = 31
+        if err := orm.Repository(&amp;models.User{}).Update(user); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to update user: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ User updated successfully")
+
+        // Find all users
+        allUsers, err := orm.Repository(&amp;models.User{}).FindAll()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find all users: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Found %d users\n", len(allUsers))</span>
+}
+
+func testQueryBuilder(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🧪 Testing Query Builder...")
+
+        // Query with conditions
+        results, err := orm.Query(&amp;models.User{}).
+                Where("age", "&gt;", 25).
+                Where("is_active", "=", true).
+                OrderBy("name", "ASC").
+                Limit(10).
+                Find()
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute query: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Query returned %d results\n", len(results))
+
+        // Raw SQL query
+        rawResults, err := orm.Raw("SELECT COUNT(*) as count FROM users WHERE age &gt; ?", 25).Find()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute raw query: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if len(rawResults) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Printf("✅ Raw query count: %v\n", rawResults[0]["count"])
+        }</span>
+}
+
+func testRepositoryPattern(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🧪 Testing Repository Pattern...")
+
+        repo := orm.Repository(&amp;models.User{})
+
+        // Find by criteria
+        users, err := repo.FindBy(map[string]interface{}{
+                "is_active": true,
+                "age":       30,
+        })
+
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to find users by criteria: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Repository found %d users matching criteria\n", len(users))
+
+        // Count all users
+        count, err := repo.Count()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to count users: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("✅ Total users: %d\n", count)</span>
+}
+
+func testTransactions(orm core.ORM) <span class="cov0" title="0">{
+        fmt.Println("\n🧪 Testing Transactions...")
+
+        err := orm.Transaction(func(txORM core.ORM) error </span><span class="cov0" title="0">{
+                // Create a user within transaction
+                user := &amp;models.User{
+                        Name:     "Transaction User",
+                        Age:      25,
+                        IsActive: true,
+                }
+
+                if err := txORM.Repository(&amp;models.User{}).Save(user); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to save user in transaction: %w", err)
+                }</span>
+
+                // Create a post within the same transaction
+                <span class="cov0" title="0">post := &amp;models.Post{
+                        Title:   "Transaction Post",
+                        Content: "This post was created in a transaction",
+                }
+
+                if err := txORM.Repository(&amp;models.Post{}).Save(post); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to save post in transaction: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">fmt.Println("✅ Transaction completed successfully")
+                return nil</span>
+        })
+
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Transaction failed: %v", err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">fmt.Println("✅ Transaction test completed")</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package core
+
+import (
+        "fmt"
+        "reflect"
+        "strings"
+)
+
+// MetadataManager handles model metadata extraction and caching
+type MetadataManager struct {
+        metadata map[reflect.Type]*ModelMetadata
+}
+
+// NewMetadataManager creates a new metadata manager
+func NewMetadataManager() *MetadataManager <span class="cov8" title="1">{
+        return &amp;MetadataManager{
+                metadata: make(map[reflect.Type]*ModelMetadata),
+        }
+}</span>
+
+// ExtractMetadata extracts metadata from a model struct
+func (mm *MetadataManager) ExtractMetadata(model interface{}) (*ModelMetadata, error) <span class="cov8" title="1">{
+        t := reflect.TypeOf(model)
+
+        // Handle pointer types
+        if t.Kind() == reflect.Ptr </span><span class="cov8" title="1">{
+                t = t.Elem()
+        }</span>
+
+        // Check if metadata is already cached
+        <span class="cov8" title="1">if cached, exists := mm.metadata[t]; exists </span><span class="cov8" title="1">{
+                return cached, nil
+        }</span>
+
+        <span class="cov8" title="1">metadata := &amp;ModelMetadata{
+                Type:      t,
+                TableName: getTableName(t),
+                Columns:   make([]Column, 0),
+                Relations: make(map[string]*Relation),
+                Indexes:   make([]Index, 0),
+        }
+
+        // Extract columns from struct fields
+        for i := 0; i &lt; t.NumField(); i++ </span><span class="cov8" title="1">{
+                field := t.Field(i)
+                column, err := mm.extractColumn(field)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("error extracting column from field %s: %w", field.Name, err)
+                }</span>
+
+                <span class="cov8" title="1">if column != nil </span><span class="cov8" title="1">{
+                        metadata.Columns = append(metadata.Columns, *column)
+
+                        // Track primary key and auto increment
+                        if column.PrimaryKey </span><span class="cov8" title="1">{
+                                metadata.PrimaryKey = column.Name
+                        }</span>
+                        <span class="cov8" title="1">if column.AutoIncrement </span><span class="cov8" title="1">{
+                                metadata.AutoIncrement = column.Name
+                        }</span>
+                }
+        }
+
+        // Extract relations
+        <span class="cov8" title="1">mm.extractRelations(t, metadata)
+
+        // Extract indexes
+        mm.extractIndexes(t, metadata)
+
+        // Cache the metadata
+        mm.metadata[t] = metadata
+
+        return metadata, nil</span>
+}
+
+// extractColumn extracts column information from a struct field
+func (mm *MetadataManager) extractColumn(field reflect.StructField) (*Column, error) <span class="cov8" title="1">{
+        dbTag := field.Tag.Get("db")
+        if dbTag == "" || dbTag == "-" </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov8" title="1">column := &amp;Column{
+                Name:     dbTag,
+                Type:     getSQLType(field.Type),
+                Nullable: true, // Default to nullable
+        }
+
+        // Extract primary key
+        if field.Tag.Get("primary") == "true" </span><span class="cov8" title="1">{
+                column.PrimaryKey = true
+                column.Nullable = false
+        }</span>
+
+        // Extract auto increment
+        <span class="cov8" title="1">if field.Tag.Get("autoincrement") == "true" </span><span class="cov8" title="1">{
+                column.AutoIncrement = true
+        }</span>
+
+        // Extract unique constraint
+        <span class="cov8" title="1">if field.Tag.Get("unique") == "true" </span><span class="cov8" title="1">{
+                column.Unique = true
+        }</span>
+
+        // Extract index
+        <span class="cov8" title="1">if field.Tag.Get("index") == "true" </span><span class="cov0" title="0">{
+                column.Index = true
+        }</span>
+
+        // Extract length for string types
+        <span class="cov8" title="1">if length := field.Tag.Get("length"); length != "" </span><span class="cov0" title="0">{
+                if l, err := parseInt(length); err == nil </span><span class="cov0" title="0">{
+                        column.Length = l
+                }</span>
+        }
+
+        // Extract default value
+        <span class="cov8" title="1">if defaultValue := field.Tag.Get("default"); defaultValue != "" </span><span class="cov0" title="0">{
+                column.Default = parseDefaultValue(defaultValue, field.Type)
+        }</span>
+
+        // Extract foreign key
+        <span class="cov8" title="1">if fk := field.Tag.Get("foreign"); fk != "" </span><span class="cov8" title="1">{
+                parts := strings.Split(fk, ".")
+                if len(parts) == 2 </span><span class="cov8" title="1">{
+                        column.ForeignKey = &amp;ForeignKey{
+                                ReferencedTable:  parts[0],
+                                ReferencedColumn: parts[1],
+                                OnDelete:         field.Tag.Get("ondelete"),
+                                OnUpdate:         field.Tag.Get("onupdate"),
+                        }
+                }</span>
+        }
+
+        <span class="cov8" title="1">return column, nil</span>
+}
+
+// extractRelations extracts relationship information from struct fields
+func (mm *MetadataManager) extractRelations(t reflect.Type, metadata *ModelMetadata) <span class="cov8" title="1">{
+        for i := 0; i &lt; t.NumField(); i++ </span><span class="cov8" title="1">{
+                field := t.Field(i)
+
+                // Check for relation tags
+                if relationType := field.Tag.Get("relation"); relationType != "" </span><span class="cov0" title="0">{
+                        relation := &amp;Relation{
+                                Type:        parseRelationType(relationType),
+                                TargetModel: field.Type,
+                                Lazy:        field.Tag.Get("lazy") == "true",
+                        }
+
+                        // Extract foreign key information
+                        if fk := field.Tag.Get("foreign_key"); fk != "" </span><span class="cov0" title="0">{
+                                relation.ForeignKey = fk
+                        }</span>
+                        <span class="cov0" title="0">if rk := field.Tag.Get("referenced_key"); rk != "" </span><span class="cov0" title="0">{
+                                relation.ReferencedKey = rk
+                        }</span>
+                        <span class="cov0" title="0">if jt := field.Tag.Get("join_table"); jt != "" </span><span class="cov0" title="0">{
+                                relation.JoinTable = jt
+                        }</span>
+
+                        <span class="cov0" title="0">metadata.Relations[field.Name] = relation</span>
+                }
+        }
+}
+
+// extractIndexes extracts index information from struct tags
+func (mm *MetadataManager) extractIndexes(t reflect.Type, metadata *ModelMetadata) <span class="cov8" title="1">{
+        for i := 0; i &lt; t.NumField(); i++ </span><span class="cov8" title="1">{
+                field := t.Field(i)
+
+                // Check for index tags
+                if indexName := field.Tag.Get("index_name"); indexName != "" </span><span class="cov0" title="0">{
+                        index := Index{
+                                Name:    indexName,
+                                Columns: []string{field.Tag.Get("db")},
+                                Unique:  field.Tag.Get("unique") == "true",
+                        }
+                        metadata.Indexes = append(metadata.Indexes, index)
+                }</span>
+        }
+}
+
+// getSQLType maps Go types to SQL types
+func getSQLType(t reflect.Type) string <span class="cov8" title="1">{
+        switch t.Kind() </span>{
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:<span class="cov8" title="1">
+                return "INT"</span>
+        case reflect.Int64:<span class="cov8" title="1">
+                return "BIGINT"</span>
+        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:<span class="cov0" title="0">
+                return "INT UNSIGNED"</span>
+        case reflect.Uint64:<span class="cov0" title="0">
+                return "BIGINT UNSIGNED"</span>
+        case reflect.Float32:<span class="cov0" title="0">
+                return "FLOAT"</span>
+        case reflect.Float64:<span class="cov8" title="1">
+                return "DOUBLE"</span>
+        case reflect.String:<span class="cov8" title="1">
+                return "VARCHAR(255)"</span>
+        case reflect.Bool:<span class="cov8" title="1">
+                return "BOOLEAN"</span>
+        case reflect.Struct:<span class="cov0" title="0">
+                if t == reflect.TypeOf([]byte{}) </span><span class="cov0" title="0">{
+                        return "BLOB"
+                }</span>
+                <span class="cov0" title="0">return "TEXT"</span>
+        case reflect.Slice:<span class="cov0" title="0">
+                if t.Elem().Kind() == reflect.Uint8 </span><span class="cov0" title="0">{
+                        return "BLOB"
+                }</span>
+                <span class="cov0" title="0">return "TEXT"</span>
+        default:<span class="cov0" title="0">
+                return "TEXT"</span>
+        }
+}
+
+// getTableName extracts the table name from a struct
+func getTableName(t reflect.Type) string <span class="cov8" title="1">{
+        // Check for table tag on the struct
+        if t.NumField() &gt; 0 </span><span class="cov8" title="1">{
+                if tableTag := t.Field(0).Tag.Get("table"); tableTag != "" </span><span class="cov8" title="1">{
+                        return tableTag
+                }</span>
+        }
+
+        // Default to lowercase struct name
+        <span class="cov8" title="1">return strings.ToLower(t.Name())</span>
+}
+
+// parseRelationType parses relation type from string
+func parseRelationType(relationType string) RelationType <span class="cov8" title="1">{
+        switch strings.ToLower(relationType) </span>{
+        case "one_to_one":<span class="cov8" title="1">
+                return OneToOne</span>
+        case "one_to_many":<span class="cov8" title="1">
+                return OneToMany</span>
+        case "many_to_one":<span class="cov8" title="1">
+                return ManyToOne</span>
+        case "many_to_many":<span class="cov8" title="1">
+                return ManyToMany</span>
+        default:<span class="cov8" title="1">
+                return OneToOne</span>
+        }
+}
+
+// parseDefaultValue parses default value from string
+func parseDefaultValue(value string, t reflect.Type) interface{} <span class="cov8" title="1">{
+        switch t.Kind() </span>{
+        case reflect.String:<span class="cov8" title="1">
+                return value</span>
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:<span class="cov8" title="1">
+                if i, err := parseInt(value); err == nil </span><span class="cov8" title="1">{
+                        return i
+                }</span>
+        case reflect.Float32, reflect.Float64:<span class="cov8" title="1">
+                if f, err := parseFloat(value); err == nil </span><span class="cov8" title="1">{
+                        return f
+                }</span>
+        case reflect.Bool:<span class="cov8" title="1">
+                return strings.ToLower(value) == "true"</span>
+        }
+        <span class="cov0" title="0">return value</span>
+}
+
+// parseInt parses an integer from string
+func parseInt(s string) (int, error) <span class="cov8" title="1">{
+        var i int
+        _, err := fmt.Sscanf(s, "%d", &amp;i)
+        return i, err
+}</span>
+
+// parseFloat parses a float from string
+func parseFloat(s string) (float64, error) <span class="cov8" title="1">{
+        var f float64
+        _, err := fmt.Sscanf(s, "%f", &amp;f)
+        return f, err
+}</span>
+
+// GetMetadata returns cached metadata for a model
+func (mm *MetadataManager) GetMetadata(model interface{}) (*ModelMetadata, error) <span class="cov8" title="1">{
+        return mm.ExtractMetadata(model)
+}</span>
+
+// ClearCache clears the metadata cache
+func (mm *MetadataManager) ClearCache() <span class="cov0" title="0">{
+        mm.metadata = make(map[reflect.Type]*ModelMetadata)
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package core
+
+import (
+        "context"
+        "database/sql"
+        "fmt"
+        "reflect"
+        "sync"
+)
+
+// ORMImpl implements the ORM interface
+type ORMImpl struct {
+        dialect         Dialect
+        metadataManager *MetadataManager
+        models          map[reflect.Type]*ModelMetadata
+        connected       bool
+        mu              sync.RWMutex
+}
+
+// NewORM creates a new ORM instance
+func NewORM(dialect Dialect) *ORMImpl <span class="cov0" title="0">{
+        return &amp;ORMImpl{
+                dialect:         dialect,
+                metadataManager: NewMetadataManager(),
+                models:          make(map[reflect.Type]*ModelMetadata),
+                connected:       false,
+        }
+}</span>
+
+// Connect establishes a connection to the database
+func (o *ORMImpl) Connect(config ConnectionConfig) error <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+
+        if o.dialect == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("dialect is not set")
+        }</span>
+
+        <span class="cov8" title="1">if err := o.dialect.Connect(config); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to database: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">o.connected = true
+        return nil</span>
+}
+
+// Close closes the database connection
+func (o *ORMImpl) Close() error <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+
+        if o.connected </span><span class="cov0" title="0">{
+                o.connected = false
+                if o.dialect != nil </span><span class="cov0" title="0">{
+                        return o.dialect.Close()
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// RegisterModel registers a model with the ORM
+func (o *ORMImpl) RegisterModel(model interface{}) error <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+
+        metadata, err := o.metadataManager.ExtractMetadata(model)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to extract metadata: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">o.models[metadata.Type] = metadata
+        return nil</span>
+}
+
+// GetMetadata returns metadata for a model
+func (o *ORMImpl) GetMetadata(model interface{}) (*ModelMetadata, error) <span class="cov8" title="1">{
+        o.mu.RLock()
+        defer o.mu.RUnlock()
+
+        return o.metadataManager.GetMetadata(model)
+}</span>
+
+// Query creates a new query builder for the given model
+func (o *ORMImpl) Query(model interface{}) QueryBuilder <span class="cov8" title="1">{
+        metadata, err := o.GetMetadata(model)
+        if err != nil </span><span class="cov0" title="0">{
+                // Return a query builder that will fail on execution
+                return &amp;QueryBuilderImpl{
+                        orm:      o,
+                        metadata: nil,
+                        err:      err,
+                }
+        }</span>
+
+        <span class="cov8" title="1">return &amp;QueryBuilderImpl{
+                orm:      o,
+                metadata: metadata,
+                table:    metadata.TableName,
+                fields:   []string{"*"},
+                where:    make([]WhereCondition, 0),
+                orderBy:  make([]OrderBy, 0),
+                joins:    make([]Join, 0),
+                limit:    0,
+                offset:   0,
+                args:     make([]interface{}, 0),
+        }</span>
+}
+
+// Raw creates a raw SQL query builder
+func (o *ORMImpl) Raw(sql string, args ...interface{}) QueryBuilder <span class="cov8" title="1">{
+        return &amp;QueryBuilderImpl{
+                orm:      o,
+                rawSQL:   sql,
+                rawArgs:  args,
+                metadata: nil,
+        }
+}</span>
+
+// Repository creates a repository for the given model
+func (o *ORMImpl) Repository(model interface{}) Repository <span class="cov8" title="1">{
+        metadata, err := o.GetMetadata(model)
+        if err != nil </span><span class="cov0" title="0">{
+                return &amp;RepositoryImpl{
+                        orm:      o,
+                        metadata: nil,
+                        err:      err,
+                }
+        }</span>
+
+        <span class="cov8" title="1">return &amp;RepositoryImpl{
+                orm:      o,
+                metadata: metadata,
+        }</span>
+}
+
+// Transaction executes a function within a transaction
+func (o *ORMImpl) Transaction(fn func(ORM) error) error <span class="cov8" title="1">{
+        tx, err := o.dialect.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to begin transaction: %w", err)
+        }</span>
+
+        // Create a transaction-scoped ORM
+        <span class="cov8" title="1">txORM := &amp;ORMImpl{
+                dialect:         &amp;TransactionDialect{tx: tx},
+                metadataManager: o.metadataManager,
+                models:          o.models,
+                connected:       true,
+        }
+
+        defer func() </span><span class="cov8" title="1">{
+                if r := recover(); r != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        panic(r)</span>
+                }
+        }()
+
+        <span class="cov8" title="1">if err := fn(txORM); err != nil </span><span class="cov8" title="1">{
+                if rbErr := tx.Rollback(); rbErr != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("transaction failed: %w, rollback failed: %v", err, rbErr)
+                }</span>
+                <span class="cov8" title="1">return err</span>
+        }
+
+        <span class="cov8" title="1">return tx.Commit()</span>
+}
+
+// TransactionWithContext executes a function within a transaction with context
+func (o *ORMImpl) TransactionWithContext(ctx context.Context, fn func(ORM) error) error <span class="cov8" title="1">{
+        tx, err := o.dialect.BeginTx(ctx, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to begin transaction: %w", err)
+        }</span>
+
+        // Create a transaction-scoped ORM
+        <span class="cov8" title="1">txORM := &amp;ORMImpl{
+                dialect:         &amp;TransactionDialect{tx: tx},
+                metadataManager: o.metadataManager,
+                models:          o.models,
+                connected:       true,
+        }
+
+        defer func() </span><span class="cov8" title="1">{
+                if r := recover(); r != nil </span><span class="cov0" title="0">{
+                        tx.Rollback()
+                        panic(r)</span>
+                }
+        }()
+
+        <span class="cov8" title="1">if err := fn(txORM); err != nil </span><span class="cov8" title="1">{
+                if rbErr := tx.Rollback(); rbErr != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("transaction failed: %w, rollback failed: %v", err, rbErr)
+                }</span>
+                <span class="cov8" title="1">return err</span>
+        }
+
+        <span class="cov8" title="1">return tx.Commit()</span>
+}
+
+// CreateTable creates a table for the given model
+func (o *ORMImpl) CreateTable(model interface{}) error <span class="cov8" title="1">{
+        metadata, err := o.GetMetadata(model)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get metadata: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return o.dialect.CreateTable(metadata.TableName, metadata.Columns)</span>
+}
+
+// DropTable drops the table for the given model
+func (o *ORMImpl) DropTable(model interface{}) error <span class="cov8" title="1">{
+        metadata, err := o.GetMetadata(model)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get metadata: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return o.dialect.DropTable(metadata.TableName)</span>
+}
+
+// Migrate performs database migrations
+func (o *ORMImpl) Migrate() error <span class="cov8" title="1">{
+        o.mu.RLock()
+        defer o.mu.RUnlock()
+
+        for _, metadata := range o.models </span><span class="cov0" title="0">{
+                exists, err := o.dialect.TableExists(metadata.TableName)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to check if table %s exists: %w", metadata.TableName, err)
+                }</span>
+
+                <span class="cov0" title="0">if !exists </span><span class="cov0" title="0">{
+                        if err := o.dialect.CreateTable(metadata.TableName, metadata.Columns); err != nil </span><span class="cov0" title="0">{
+                                return fmt.Errorf("failed to create table %s: %w", metadata.TableName, err)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetDialect returns the current dialect
+func (o *ORMImpl) GetDialect() Dialect <span class="cov8" title="1">{
+        return o.dialect
+}</span>
+
+// IsConnected returns whether the ORM is connected to the database
+func (o *ORMImpl) IsConnected() bool <span class="cov8" title="1">{
+        o.mu.RLock()
+        defer o.mu.RUnlock()
+        return o.connected
+}</span>
+
+// TransactionDialect wraps a transaction as a dialect
+type TransactionDialect struct {
+        tx Transaction
+}
+
+// Connect is a no-op for transaction dialect
+func (td *TransactionDialect) Connect(config ConnectionConfig) error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+// Close is a no-op for transaction dialect
+func (td *TransactionDialect) Close() error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+// Ping is a no-op for transaction dialect
+func (td *TransactionDialect) Ping() error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+// Exec delegates to the transaction
+func (td *TransactionDialect) Exec(query string, args ...interface{}) (sql.Result, error) <span class="cov0" title="0">{
+        return td.tx.Exec(query, args...)
+}</span>
+
+// Query delegates to the transaction
+func (td *TransactionDialect) Query(query string, args ...interface{}) (*sql.Rows, error) <span class="cov0" title="0">{
+        return td.tx.Query(query, args...)
+}</span>
+
+// QueryRow delegates to the transaction
+func (td *TransactionDialect) QueryRow(query string, args ...interface{}) *sql.Row <span class="cov0" title="0">{
+        return td.tx.QueryRow(query, args...)
+}</span>
+
+// Begin is not supported in transaction dialect
+func (td *TransactionDialect) Begin() (Transaction, error) <span class="cov0" title="0">{
+        return nil, fmt.Errorf("nested transactions not supported")
+}</span>
+
+// BeginTx is not supported in transaction dialect
+func (td *TransactionDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (Transaction, error) <span class="cov0" title="0">{
+        return nil, fmt.Errorf("nested transactions not supported")
+}</span>
+
+// CreateTable is not supported in transaction dialect
+func (td *TransactionDialect) CreateTable(tableName string, columns []Column) error <span class="cov0" title="0">{
+        return fmt.Errorf("schema operations not supported in transactions")
+}</span>
+
+// DropTable is not supported in transaction dialect
+func (td *TransactionDialect) DropTable(tableName string) error <span class="cov0" title="0">{
+        return fmt.Errorf("schema operations not supported in transactions")
+}</span>
+
+// TableExists is not supported in transaction dialect
+func (td *TransactionDialect) TableExists(tableName string) (bool, error) <span class="cov0" title="0">{
+        return false, fmt.Errorf("schema operations not supported in transactions")
+}</span>
+
+// GetSQLType delegates to the original dialect (not available in transaction)
+func (td *TransactionDialect) GetSQLType(goType reflect.Type) string <span class="cov0" title="0">{
+        return "TEXT" // Default fallback
+}</span>
+
+// GetPlaceholder returns the placeholder for parameterized queries
+func (td *TransactionDialect) GetPlaceholder(index int) string <span class="cov0" title="0">{
+        return "?"
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package core
+
+import (
+        "database/sql"
+        "fmt"
+        "strings"
+)
+
+// WhereCondition represents a WHERE clause condition
+type WhereCondition struct {
+        Field    string
+        Operator string
+        Value    interface{}
+        Logical  string // AND, OR
+}
+
+// OrderBy represents an ORDER BY clause
+type OrderBy struct {
+        Field     string
+        Direction string // ASC, DESC
+}
+
+// Join represents a JOIN clause
+type Join struct {
+        Type      string // INNER, LEFT, RIGHT, FULL
+        Table     string
+        Condition string
+}
+
+// QueryBuilderImpl implements the QueryBuilder interface
+type QueryBuilderImpl struct {
+        orm      *ORMImpl
+        metadata *ModelMetadata
+        err      error
+
+        // Query components
+        table      string
+        fields     []string
+        where      []WhereCondition
+        orderBy    []OrderBy
+        groupBy    []string
+        having     string
+        havingArgs []interface{}
+        joins      []Join
+        limit      int
+        offset     int
+        args       []interface{}
+
+        // Raw SQL
+        rawSQL  string
+        rawArgs []interface{}
+}
+
+// Select sets the fields to select
+func (qb *QueryBuilderImpl) Select(fields ...string) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov8" title="1">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">if len(fields) == 0 </span><span class="cov8" title="1">{
+                qb.fields = []string{"*"}
+        }</span> else<span class="cov8" title="1"> {
+                qb.fields = fields
+        }</span>
+        <span class="cov8" title="1">return qb</span>
+}
+
+// From sets the table name
+func (qb *QueryBuilderImpl) From(table string) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+        <span class="cov8" title="1">qb.table = table
+        return qb</span>
+}
+
+// Where adds a WHERE condition
+func (qb *QueryBuilderImpl) Where(field, operator string, value interface{}) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov8" title="1">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">qb.where = append(qb.where, WhereCondition{
+                Field:    field,
+                Operator: operator,
+                Value:    value,
+                Logical:  "AND",
+        })
+
+        if value != nil </span><span class="cov8" title="1">{
+                qb.args = append(qb.args, value)
+        }</span>
+
+        <span class="cov8" title="1">return qb</span>
+}
+
+// WhereIn adds a WHERE IN condition
+func (qb *QueryBuilderImpl) WhereIn(field string, values []interface{}) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">if len(values) == 0 </span><span class="cov8" title="1">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">placeholders := make([]string, len(values))
+        for i := range values </span><span class="cov8" title="1">{
+                placeholders[i] = "?"
+                qb.args = append(qb.args, values[i])
+        }</span>
+
+        <span class="cov8" title="1">condition := fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", "))
+        qb.where = append(qb.where, WhereCondition{
+                Field:    condition,
+                Operator: "",
+                Value:    nil,
+                Logical:  "AND",
+        })
+
+        return qb</span>
+}
+
+// WhereNotIn adds a WHERE NOT IN condition
+func (qb *QueryBuilderImpl) WhereNotIn(field string, values []interface{}) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">if len(values) == 0 </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">placeholders := make([]string, len(values))
+        for i := range values </span><span class="cov8" title="1">{
+                placeholders[i] = "?"
+                qb.args = append(qb.args, values[i])
+        }</span>
+
+        <span class="cov8" title="1">condition := fmt.Sprintf("%s NOT IN (%s)", field, strings.Join(placeholders, ", "))
+        qb.where = append(qb.where, WhereCondition{
+                Field:    condition,
+                Operator: "",
+                Value:    nil,
+                Logical:  "AND",
+        })
+
+        return qb</span>
+}
+
+// OrderBy adds an ORDER BY clause
+func (qb *QueryBuilderImpl) OrderBy(field, direction string) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">if direction == "" </span><span class="cov8" title="1">{
+                direction = "ASC"
+        }</span>
+
+        <span class="cov8" title="1">qb.orderBy = append(qb.orderBy, OrderBy{
+                Field:     field,
+                Direction: strings.ToUpper(direction),
+        })
+
+        return qb</span>
+}
+
+// GroupBy adds a GROUP BY clause
+func (qb *QueryBuilderImpl) GroupBy(fields ...string) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+        <span class="cov8" title="1">qb.groupBy = append(qb.groupBy, fields...)
+        return qb</span>
+}
+
+// Having adds a HAVING clause
+func (qb *QueryBuilderImpl) Having(condition string, args ...interface{}) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+        <span class="cov8" title="1">qb.having = condition
+        qb.havingArgs = append(qb.havingArgs, args...)
+        return qb</span>
+}
+
+// Limit sets the LIMIT clause
+func (qb *QueryBuilderImpl) Limit(limit int) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+        <span class="cov8" title="1">qb.limit = limit
+        return qb</span>
+}
+
+// Offset sets the OFFSET clause
+func (qb *QueryBuilderImpl) Offset(offset int) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+        <span class="cov8" title="1">qb.offset = offset
+        return qb</span>
+}
+
+// Join adds a JOIN clause
+func (qb *QueryBuilderImpl) Join(table, condition string) QueryBuilder <span class="cov8" title="1">{
+        return qb.addJoin("INNER", table, condition)
+}</span>
+
+// LeftJoin adds a LEFT JOIN clause
+func (qb *QueryBuilderImpl) LeftJoin(table, condition string) QueryBuilder <span class="cov8" title="1">{
+        return qb.addJoin("LEFT", table, condition)
+}</span>
+
+// RightJoin adds a RIGHT JOIN clause
+func (qb *QueryBuilderImpl) RightJoin(table, condition string) QueryBuilder <span class="cov8" title="1">{
+        return qb.addJoin("RIGHT", table, condition)
+}</span>
+
+// InnerJoin adds an INNER JOIN clause
+func (qb *QueryBuilderImpl) InnerJoin(table, condition string) QueryBuilder <span class="cov8" title="1">{
+        return qb.addJoin("INNER", table, condition)
+}</span>
+
+// addJoin adds a join clause
+func (qb *QueryBuilderImpl) addJoin(joinType, table, condition string) QueryBuilder <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return qb
+        }</span>
+
+        <span class="cov8" title="1">qb.joins = append(qb.joins, Join{
+                Type:      joinType,
+                Table:     table,
+                Condition: condition,
+        })
+
+        return qb</span>
+}
+
+// Find executes the query and returns all results
+func (qb *QueryBuilderImpl) Find() ([]map[string]interface{}, error) <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return nil, qb.err
+        }</span>
+
+        <span class="cov8" title="1">if qb.rawSQL != "" </span><span class="cov0" title="0">{
+                return qb.executeRaw()
+        }</span>
+
+        <span class="cov8" title="1">query := qb.buildQuery()
+        rows, err := qb.orm.dialect.Query(query, qb.args...)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to execute query: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return qb.scanRows(rows)</span>
+}
+
+// FindOne executes the query and returns the first result
+func (qb *QueryBuilderImpl) FindOne() (map[string]interface{}, error) <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return nil, qb.err
+        }</span>
+
+        // Set limit to 1 for FindOne
+        <span class="cov8" title="1">originalLimit := qb.limit
+        qb.limit = 1
+
+        results, err := qb.Find()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        // Restore original limit
+        <span class="cov0" title="0">qb.limit = originalLimit
+
+        if len(results) == 0 </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov0" title="0">return results[0], nil</span>
+}
+
+// Count executes the query and returns the count
+func (qb *QueryBuilderImpl) Count() (int64, error) <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return 0, qb.err
+        }</span>
+
+        // Save original fields and set to COUNT(*)
+        <span class="cov8" title="1">originalFields := qb.fields
+        qb.fields = []string{"COUNT(*)"}
+
+        query := qb.buildQuery()
+        var count int64
+        row := qb.orm.dialect.QueryRow(query, qb.args...)
+        if row == nil </span><span class="cov8" title="1">{
+                qb.fields = originalFields
+                return 0, fmt.Errorf("failed to count: QueryRow returned nil")
+        }</span>
+        <span class="cov0" title="0">err := row.Scan(&amp;count)
+
+        // Restore original fields
+        qb.fields = originalFields
+
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to count: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return count, nil</span>
+}
+
+// Exists checks if any records exist
+func (qb *QueryBuilderImpl) Exists() (bool, error) <span class="cov8" title="1">{
+        if qb.err != nil </span><span class="cov0" title="0">{
+                return false, qb.err
+        }</span>
+
+        <span class="cov8" title="1">count, err := qb.Count()
+        if err != nil </span><span class="cov8" title="1">{
+                return false, err
+        }</span>
+
+        <span class="cov0" title="0">return count &gt; 0, nil</span>
+}
+
+// Raw sets raw SQL
+func (qb *QueryBuilderImpl) Raw(sql string, args ...interface{}) QueryBuilder <span class="cov8" title="1">{
+        qb.rawSQL = sql
+        qb.rawArgs = args
+        return qb
+}</span>
+
+// GetSQL returns the built SQL query
+func (qb *QueryBuilderImpl) GetSQL() string <span class="cov8" title="1">{
+        if qb.rawSQL != "" </span><span class="cov8" title="1">{
+                return qb.rawSQL
+        }</span>
+        <span class="cov8" title="1">return qb.buildQuery()</span>
+}
+
+// GetArgs returns the query arguments
+func (qb *QueryBuilderImpl) GetArgs() []interface{} <span class="cov8" title="1">{
+        if qb.rawSQL != "" </span><span class="cov8" title="1">{
+                return qb.rawArgs
+        }</span>
+        <span class="cov8" title="1">return qb.args</span>
+}
+
+// buildQuery builds the SQL query string
+func (qb *QueryBuilderImpl) buildQuery() string <span class="cov8" title="1">{
+        var parts []string
+
+        // SELECT
+        fields := strings.Join(qb.fields, ", ")
+        parts = append(parts, fmt.Sprintf("SELECT %s", fields))
+
+        // FROM
+        parts = append(parts, fmt.Sprintf("FROM %s", qb.table))
+
+        // JOINs
+        for _, join := range qb.joins </span><span class="cov8" title="1">{
+                parts = append(parts, fmt.Sprintf("%s JOIN %s ON %s",
+                        join.Type, join.Table, join.Condition))
+        }</span>
+
+        // WHERE
+        <span class="cov8" title="1">if len(qb.where) &gt; 0 </span><span class="cov8" title="1">{
+                whereClauses := make([]string, 0, len(qb.where))
+                for i, condition := range qb.where </span><span class="cov8" title="1">{
+                        if i == 0 </span><span class="cov8" title="1">{
+                                whereClauses = append(whereClauses, condition.Field+" "+condition.Operator+" ?")
+                        }</span> else<span class="cov8" title="1"> {
+                                whereClauses = append(whereClauses,
+                                        condition.Logical+" "+condition.Field+" "+condition.Operator+" ?")
+                        }</span>
+                }
+                <span class="cov8" title="1">parts = append(parts, "WHERE "+strings.Join(whereClauses, " "))</span>
+        }
+
+        // GROUP BY
+        <span class="cov8" title="1">if len(qb.groupBy) &gt; 0 </span><span class="cov8" title="1">{
+                parts = append(parts, "GROUP BY "+strings.Join(qb.groupBy, ", "))
+        }</span>
+
+        // HAVING
+        <span class="cov8" title="1">if qb.having != "" </span><span class="cov8" title="1">{
+                parts = append(parts, "HAVING "+qb.having)
+        }</span>
+
+        // ORDER BY
+        <span class="cov8" title="1">if len(qb.orderBy) &gt; 0 </span><span class="cov8" title="1">{
+                orderClauses := make([]string, 0, len(qb.orderBy))
+                for _, order := range qb.orderBy </span><span class="cov8" title="1">{
+                        orderClauses = append(orderClauses,
+                                fmt.Sprintf("%s %s", order.Field, order.Direction))
+                }</span>
+                <span class="cov8" title="1">parts = append(parts, "ORDER BY "+strings.Join(orderClauses, ", "))</span>
+        }
+
+        // LIMIT
+        <span class="cov8" title="1">if qb.limit &gt; 0 </span><span class="cov8" title="1">{
+                parts = append(parts, fmt.Sprintf("LIMIT %d", qb.limit))
+        }</span>
+
+        // OFFSET
+        <span class="cov8" title="1">if qb.offset &gt; 0 </span><span class="cov8" title="1">{
+                parts = append(parts, fmt.Sprintf("OFFSET %d", qb.offset))
+        }</span>
+
+        <span class="cov8" title="1">return strings.Join(parts, " ")</span>
+}
+
+// executeRaw executes a raw SQL query
+func (qb *QueryBuilderImpl) executeRaw() ([]map[string]interface{}, error) <span class="cov0" title="0">{
+        rows, err := qb.orm.dialect.Query(qb.rawSQL, qb.rawArgs...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to execute raw query: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        return qb.scanRows(rows)</span>
+}
+
+// scanRows scans database rows into a slice of maps
+func (qb *QueryBuilderImpl) scanRows(rows *sql.Rows) ([]map[string]interface{}, error) <span class="cov0" title="0">{
+        columns, err := rows.Columns()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get columns: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">var results []map[string]interface{}
+
+        for rows.Next() </span><span class="cov0" title="0">{
+                // Create a slice of interface{} to hold the values
+                values := make([]interface{}, len(columns))
+                valuePtrs := make([]interface{}, len(columns))
+                for i := range values </span><span class="cov0" title="0">{
+                        valuePtrs[i] = &amp;values[i]
+                }</span>
+
+                // Scan the row
+                <span class="cov0" title="0">if err := rows.Scan(valuePtrs...); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan row: %w", err)
+                }</span>
+
+                // Create a map for this row
+                <span class="cov0" title="0">row := make(map[string]interface{})
+                for i, col := range columns </span><span class="cov0" title="0">{
+                        val := values[i]
+                        if val != nil </span><span class="cov0" title="0">{
+                                row[col] = val
+                        }</span>
+                }
+
+                <span class="cov0" title="0">results = append(results, row)</span>
+        }
+
+        <span class="cov0" title="0">if err := rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("error iterating rows: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return results, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package core
+
+import (
+        "fmt"
+        "reflect"
+        "strings"
+)
+
+// RepositoryImpl implements the Repository interface
+type RepositoryImpl struct {
+        orm      *ORMImpl
+        metadata *ModelMetadata
+        err      error
+}
+
+// Find finds a record by ID
+func (r *RepositoryImpl) Find(id interface{}) (interface{}, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return nil, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+        query = query.Where(r.metadata.PrimaryKey, "=", id)
+
+        results, err := query.Find()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to find record: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if len(results) == 0 </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov0" title="0">return r.mapToStruct(results[0])</span>
+}
+
+// FindAll finds all records
+func (r *RepositoryImpl) FindAll() ([]interface{}, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return nil, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+        results, err := query.Find()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to find all records: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">var entities []interface{}
+        for _, result := range results </span><span class="cov0" title="0">{
+                entity, err := r.mapToStruct(result)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to map result to struct: %w", err)
+                }</span>
+                <span class="cov0" title="0">entities = append(entities, entity)</span>
+        }
+
+        <span class="cov0" title="0">return entities, nil</span>
+}
+
+// FindBy finds records by criteria
+func (r *RepositoryImpl) FindBy(criteria map[string]interface{}) ([]interface{}, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov0" title="0">{
+                return nil, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+
+        for field, value := range criteria </span><span class="cov8" title="1">{
+                query = query.Where(field, "=", value)
+        }</span>
+
+        <span class="cov8" title="1">results, err := query.Find()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to find records by criteria: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">var entities []interface{}
+        for _, result := range results </span><span class="cov0" title="0">{
+                entity, err := r.mapToStruct(result)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to map result to struct: %w", err)
+                }</span>
+                <span class="cov0" title="0">entities = append(entities, entity)</span>
+        }
+
+        <span class="cov0" title="0">return entities, nil</span>
+}
+
+// FindOneBy finds one record by criteria
+func (r *RepositoryImpl) FindOneBy(criteria map[string]interface{}) (interface{}, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov0" title="0">{
+                return nil, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+
+        for field, value := range criteria </span><span class="cov8" title="1">{
+                query = query.Where(field, "=", value)
+        }</span>
+
+        <span class="cov8" title="1">result, err := query.FindOne()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to find one record by criteria: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if result == nil </span><span class="cov0" title="0">{
+                return nil, nil
+        }</span>
+
+        <span class="cov0" title="0">return r.mapToStruct(result)</span>
+}
+
+// Save saves an entity (insert or update)
+func (r *RepositoryImpl) Save(entity interface{}) error <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("metadata not available")
+        }</span>
+
+        // Check if entity has an ID to determine if it's an insert or update
+        <span class="cov8" title="1">entityValue := reflect.ValueOf(entity)
+        if entityValue.Kind() == reflect.Ptr </span><span class="cov8" title="1">{
+                entityValue = entityValue.Elem()
+        }</span>
+
+        <span class="cov8" title="1">idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+        if !idField.IsValid() </span><span class="cov0" title="0">{
+                return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
+        }</span>
+
+        // If ID is zero value, it's an insert
+        <span class="cov8" title="1">if isZeroValue(idField) </span><span class="cov8" title="1">{
+                return r.insert(entity)
+        }</span>
+
+        // Otherwise, it's an update
+        <span class="cov0" title="0">return r.update(entity)</span>
+}
+
+// Update updates an entity
+func (r *RepositoryImpl) Update(entity interface{}) error <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return r.err
+        }</span>
+
+        <span class="cov8" title="1">return r.update(entity)</span>
+}
+
+// Delete deletes an entity
+func (r *RepositoryImpl) Delete(entity interface{}) error <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">entityValue := reflect.ValueOf(entity)
+        if entityValue.Kind() == reflect.Ptr </span><span class="cov8" title="1">{
+                entityValue = entityValue.Elem()
+        }</span>
+
+        <span class="cov8" title="1">idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+        if !idField.IsValid() </span><span class="cov0" title="0">{
+                return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
+        }</span>
+
+        <span class="cov8" title="1">query := fmt.Sprintf("DELETE FROM %s WHERE %s = ?",
+                r.metadata.TableName, r.metadata.PrimaryKey)
+
+        _, err := r.orm.dialect.Exec(query, idField.Interface())
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete entity: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// DeleteBy deletes records by criteria
+func (r *RepositoryImpl) DeleteBy(criteria map[string]interface{}) error <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov0" title="0">{
+                return r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">var conditions []string
+        var args []interface{}
+
+        for field, value := range criteria </span><span class="cov8" title="1">{
+                conditions = append(conditions, fmt.Sprintf("%s = ?", field))
+                args = append(args, value)
+        }</span>
+
+        <span class="cov8" title="1">whereClause := strings.Join(conditions, " AND ")
+        query := fmt.Sprintf("DELETE FROM %s WHERE %s", r.metadata.TableName, whereClause)
+
+        _, err := r.orm.dialect.Exec(query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete records by criteria: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Count counts all records
+func (r *RepositoryImpl) Count() (int64, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return 0, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+        return query.Count()</span>
+}
+
+// Exists checks if a record exists by ID
+func (r *RepositoryImpl) Exists(id interface{}) (bool, error) <span class="cov8" title="1">{
+        if r.err != nil </span><span class="cov8" title="1">{
+                return false, r.err
+        }</span>
+
+        <span class="cov8" title="1">if r.metadata == nil </span><span class="cov8" title="1">{
+                return false, fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">query := r.orm.Query(reflect.New(r.metadata.Type).Interface())
+        query = query.Where(r.metadata.PrimaryKey, "=", id)
+
+        return query.Exists()</span>
+}
+
+// insert inserts a new entity
+func (r *RepositoryImpl) insert(entity interface{}) error <span class="cov8" title="1">{
+        entityValue := reflect.ValueOf(entity)
+        if entityValue.Kind() == reflect.Ptr </span><span class="cov8" title="1">{
+                entityValue = entityValue.Elem()
+        }</span>
+
+        <span class="cov8" title="1">var columns []string
+        var placeholders []string
+        var values []interface{}
+
+        for _, column := range r.metadata.Columns </span><span class="cov8" title="1">{
+                // Skip auto-increment fields
+                if column.AutoIncrement </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">field := entityValue.FieldByName(column.Name)
+                if !field.IsValid() </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">columns = append(columns, column.Name)
+                placeholders = append(placeholders, "?")
+                values = append(values, field.Interface())</span>
+        }
+
+        <span class="cov8" title="1">query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+                r.metadata.TableName,
+                strings.Join(columns, ", "),
+                strings.Join(placeholders, ", "))
+
+        result, err := r.orm.dialect.Exec(query, values...)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to insert entity: %w", err)
+        }</span>
+
+        // Set the generated ID if auto-increment
+        <span class="cov8" title="1">if r.metadata.AutoIncrement != "" </span><span class="cov0" title="0">{
+                lastID, err := result.LastInsertId()
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get last insert ID: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+                if idField.IsValid() &amp;&amp; idField.CanSet() </span><span class="cov0" title="0">{
+                        idField.SetInt(lastID)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// update updates an existing entity
+func (r *RepositoryImpl) update(entity interface{}) error <span class="cov8" title="1">{
+        if r.metadata == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("metadata not available")
+        }</span>
+
+        <span class="cov8" title="1">entityValue := reflect.ValueOf(entity)
+        if entityValue.Kind() == reflect.Ptr </span><span class="cov8" title="1">{
+                entityValue = entityValue.Elem()
+        }</span>
+
+        <span class="cov8" title="1">var setClauses []string
+        var values []interface{}
+
+        for _, column := range r.metadata.Columns </span><span class="cov8" title="1">{
+                // Skip primary key and auto-increment fields
+                if column.PrimaryKey || column.AutoIncrement </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">field := entityValue.FieldByName(column.Name)
+                if !field.IsValid() </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">setClauses = append(setClauses, fmt.Sprintf("%s = ?", column.Name))
+                values = append(values, field.Interface())</span>
+        }
+
+        // Add the primary key value for the WHERE clause
+        <span class="cov8" title="1">idField := entityValue.FieldByName(r.metadata.PrimaryKey)
+        if !idField.IsValid() </span><span class="cov0" title="0">{
+                return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
+        }</span>
+        <span class="cov8" title="1">values = append(values, idField.Interface())
+
+        query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?",
+                r.metadata.TableName,
+                strings.Join(setClauses, ", "),
+                r.metadata.PrimaryKey)
+
+        _, err := r.orm.dialect.Exec(query, values...)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update entity: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// mapToStruct maps a database result map to a struct
+func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}, error) <span class="cov0" title="0">{
+        if r.metadata == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("metadata not available")
+        }</span>
+
+        // Create a new instance of the struct
+        <span class="cov0" title="0">entity := reflect.New(r.metadata.Type).Interface()
+        entityValue := reflect.ValueOf(entity).Elem()
+
+        for _, column := range r.metadata.Columns </span><span class="cov0" title="0">{
+                field := entityValue.FieldByName(column.Name)
+                if !field.IsValid() || !field.CanSet() </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">value, exists := result[column.Name]
+                if !exists </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                // Convert the value to the appropriate type
+                <span class="cov0" title="0">if err := setFieldValue(field, value); err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to set field %s: %w", column.Name, err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return entity, nil</span>
+}
+
+// isZeroValue checks if a value is the zero value for its type
+func isZeroValue(v reflect.Value) bool <span class="cov8" title="1">{
+        switch v.Kind() </span>{
+        case reflect.Bool:<span class="cov0" title="0">
+                return !v.Bool()</span>
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:<span class="cov8" title="1">
+                return v.Int() == 0</span>
+        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:<span class="cov0" title="0">
+                return v.Uint() == 0</span>
+        case reflect.Float32, reflect.Float64:<span class="cov0" title="0">
+                return v.Float() == 0</span>
+        case reflect.String:<span class="cov0" title="0">
+                return v.String() == ""</span>
+        case reflect.Ptr, reflect.Interface:<span class="cov0" title="0">
+                return v.IsNil()</span>
+        default:<span class="cov0" title="0">
+                return false</span>
+        }
+}
+
+// setFieldValue sets a field value with type conversion
+func setFieldValue(field reflect.Value, value interface{}) error <span class="cov0" title="0">{
+        if value == nil </span><span class="cov0" title="0">{
+                field.Set(reflect.Zero(field.Type()))
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">valueType := reflect.TypeOf(value)
+        fieldType := field.Type()
+
+        // If types match, set directly
+        if valueType == fieldType </span><span class="cov0" title="0">{
+                field.Set(reflect.ValueOf(value))
+                return nil
+        }</span>
+
+        // Handle common type conversions
+        <span class="cov0" title="0">switch fieldType.Kind() </span>{
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:<span class="cov0" title="0">
+                switch v := value.(type) </span>{
+                case int64:<span class="cov0" title="0">
+                        field.SetInt(v)</span>
+                case int:<span class="cov0" title="0">
+                        field.SetInt(int64(v))</span>
+                case float64:<span class="cov0" title="0">
+                        field.SetInt(int64(v))</span>
+                default:<span class="cov0" title="0">
+                        return fmt.Errorf("cannot convert %v to %s", value, fieldType)</span>
+                }
+        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:<span class="cov0" title="0">
+                switch v := value.(type) </span>{
+                case int64:<span class="cov0" title="0">
+                        field.SetUint(uint64(v))</span>
+                case int:<span class="cov0" title="0">
+                        field.SetUint(uint64(v))</span>
+                case float64:<span class="cov0" title="0">
+                        field.SetUint(uint64(v))</span>
+                default:<span class="cov0" title="0">
+                        return fmt.Errorf("cannot convert %v to %s", value, fieldType)</span>
+                }
+        case reflect.Float32, reflect.Float64:<span class="cov0" title="0">
+                switch v := value.(type) </span>{
+                case float64:<span class="cov0" title="0">
+                        field.SetFloat(v)</span>
+                case int64:<span class="cov0" title="0">
+                        field.SetFloat(float64(v))</span>
+                case int:<span class="cov0" title="0">
+                        field.SetFloat(float64(v))</span>
+                default:<span class="cov0" title="0">
+                        return fmt.Errorf("cannot convert %v to %s", value, fieldType)</span>
+                }
+        case reflect.String:<span class="cov0" title="0">
+                switch v := value.(type) </span>{
+                case string:<span class="cov0" title="0">
+                        field.SetString(v)</span>
+                case []byte:<span class="cov0" title="0">
+                        field.SetString(string(v))</span>
+                default:<span class="cov0" title="0">
+                        return fmt.Errorf("cannot convert %v to %s", value, fieldType)</span>
+                }
+        case reflect.Bool:<span class="cov0" title="0">
+                switch v := value.(type) </span>{
+                case bool:<span class="cov0" title="0">
+                        field.SetBool(v)</span>
+                case int64:<span class="cov0" title="0">
+                        field.SetBool(v != 0)</span>
+                case int:<span class="cov0" title="0">
+                        field.SetBool(v != 0)</span>
+                default:<span class="cov0" title="0">
+                        return fmt.Errorf("cannot convert %v to %s", value, fieldType)</span>
+                }
+        default:<span class="cov0" title="0">
+                return fmt.Errorf("unsupported field type: %s", fieldType)</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package components
+
+func (iq *InsertQuery) Into(table string) *InsertQuery <span class="cov0" title="0">{
+        iq.Table = table
+        return iq
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package components
+
+import (
+        "log"
+)
+
+func (iq *InsertQuery) Set(columns []string, values []interface{}) *InsertQuery <span class="cov0" title="0">{
+        if len(columns) != len(values) </span><span class="cov0" title="0">{
+                log.Fatalf("Number of columns and values must match")
+        }</span>
+        <span class="cov0" title="0">iq.Columns = columns
+        iq.Values = values
+        return iq</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package components
+
+func (q *Query) From(table string) *Query <span class="cov0" title="0">{
+        q.Table = table
+        return q
+}</pre>
+		
+		<pre class="file" id="file10" style="display: none">package components
+
+func (q *Query) GroupBy(groupBy string) *Query <span class="cov0" title="0">{
+        q.GroupByClause = groupBy
+        return q
+}</pre>
+		
+		<pre class="file" id="file11" style="display: none">package components
+
+func (q *Query) Having(having string) *Query <span class="cov0" title="0">{
+        q.HavingClause = having
+        return q
+}</pre>
+		
+		<pre class="file" id="file12" style="display: none">package components
+
+import "fmt"
+
+func Join(joinType, table, onClause string) string <span class="cov0" title="0">{
+        if table != "" &amp;&amp; onClause != "" </span><span class="cov0" title="0">{
+                return fmt.Sprintf("%s JOIN %s ON %s", joinType, table, onClause)
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+// TODO faire la logique des jointures
+
+func InnerJoin(table, onClause string) string <span class="cov0" title="0">{
+        return Join("INNER", table, onClause)
+}</span>
+
+func LeftJoin(table, onClause string) string <span class="cov0" title="0">{
+        return Join("LEFT", table, onClause)
+}</span>
+
+func RightJoin(table, onClause string) string <span class="cov0" title="0">{
+        return Join("RIGHT", table, onClause)
+}</span>
+
+
+func (q *Query) InnerJoin(table, onClause string) *Query <span class="cov0" title="0">{
+        joinClause := InnerJoin(table, onClause)
+        if joinClause != "" </span><span class="cov0" title="0">{
+                q.Joins = append(q.Joins, joinClause)
+        }</span>
+        <span class="cov0" title="0">return q</span>
+}
+
+func (q *Query) LeftJoin(table, onClause string) *Query <span class="cov0" title="0">{
+        joinClause := LeftJoin(table, onClause)
+        if joinClause != "" </span><span class="cov0" title="0">{
+                q.Joins = append(q.Joins, joinClause)
+        }</span>
+        <span class="cov0" title="0">return q</span>
+}
+
+func (q *Query) RightJoin(table, onClause string) *Query <span class="cov0" title="0">{
+        joinClause := RightJoin(table, onClause)
+        if joinClause != "" </span><span class="cov0" title="0">{
+                q.Joins = append(q.Joins, joinClause)
+        }</span>
+        <span class="cov0" title="0">return q</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package components
+
+import(
+        "log"
+)
+
+func (q *Query) Limit(limit int) *Query <span class="cov0" title="0">{
+        if limit &lt; 0 </span><span class="cov0" title="0">{
+                log.Fatalf("Invalid limit")
+                return nil
+        }</span>
+        <span class="cov0" title="0">q.LimitValue = limit
+        return q</span>
+}</pre>
+		
+		<pre class="file" id="file14" style="display: none">package components
+
+func (q *Query) OrderBy(orderBy string) *Query <span class="cov0" title="0">{
+        q.OrderByClause = orderBy
+        return q
+}</pre>
+		
+		<pre class="file" id="file15" style="display: none">package components
+
+import (
+        "log"
+        "regexp"
+)
+
+func (q *Query) Select(fields ...string) *Query <span class="cov0" title="0">{
+        validField := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+        if len(fields) == 1 &amp;&amp; fields[0] == "*" </span><span class="cov0" title="0">{
+                q.Fields = fields
+                return q
+        }</span>
+
+        <span class="cov0" title="0">for _, field := range fields </span><span class="cov0" title="0">{
+                if !validField.MatchString(field) || field == "*" </span><span class="cov0" title="0">{
+                        log.Fatalf("Invalid select")
+                        return nil
+                }</span>
+        }
+
+        <span class="cov0" title="0">q.Fields = fields
+        return q</span>
+}
+
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package components
+
+func (q *Query) Where(condition string) *Query <span class="cov0" title="0">{
+        q.WhereClause = condition
+        return q
+}</pre>
+		
+		<pre class="file" id="file17" style="display: none">package orm
+
+import (
+        "fmt"
+        "strings"
+        "log"
+        "project/orm/utils"
+)
+
+func (iq *InsertQuery) Build() string <span class="cov0" title="0">{
+        if iq.Table == "" || len(iq.Columns) == 0 || len(iq.Values) == 0 </span><span class="cov0" title="0">{
+                log.Fatalf("Incomplete insert query")
+        }</span>
+
+        <span class="cov0" title="0">columns := strings.Join(iq.Columns, ", ")
+        placeholders := make([]string, len(iq.Values))
+        for i := range iq.Values </span><span class="cov0" title="0">{
+                placeholders[i] = "?"
+        }</span>
+
+        <span class="cov0" title="0">return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", iq.Table, columns, strings.Join(placeholders, ", "))</span>
+}
+
+func (iq *InsertQuery) Apply() <span class="cov8" title="1">{
+        entityType := utils.GetEntityType(iq.Table)
+    object := utils.SetFields(entityType, iq.Columns, iq.Values)
+        utils.AppendToData(iq.Table, object)
+}</span>
+
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package orm
+
+import (
+        "log"
+        "project/orm/utils"
+        "strconv"
+        "strings"
+
+        insert "project/orm/sql/components/insert"
+        queries "project/orm/sql/components/queries"
+)
+
+type Query struct {
+        queries.Query
+}
+
+type InsertQuery struct {
+        insert.InsertQuery
+}
+
+func (q *Query) Apply(table string) []map[string]interface{} <span class="cov8" title="1">{
+        datas := utils.FilterData(table)
+
+        var result []map[string]interface{}
+
+        if !utils.EvaluateCondition(&amp;q.Query) </span><span class="cov0" title="0">{
+                log.Fatalf("Invalid request")
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">parts := strings.Fields(q.WhereClause)
+
+        field := parts[0]
+        operator := parts[1]
+        value := parts[2]
+
+        q.Fields = utils.AsterixValue(&amp;q.Query, datas[0])
+
+        for _, data := range datas </span><span class="cov8" title="1">{
+                include := false
+                field := utils.FieldInsensitive(data, field)
+
+                if fieldValue, ok := data[field]; ok </span><span class="cov8" title="1">{
+                        parsedValue, err := strconv.Atoi(value)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Fatalf("Fail convertion from %s to int: %v", value, err)
+                        }</span>
+                        <span class="cov8" title="1">include = Operation(operator, fieldValue, parsedValue, value, parts)</span>
+                }
+
+                <span class="cov8" title="1">if include </span><span class="cov8" title="1">{
+                        allData := make(map[string]interface{})
+
+                        for _, field := range q.Fields </span><span class="cov8" title="1">{
+                                allData[field] = data[field]
+                        }</span>
+
+                        <span class="cov8" title="1">result = append(result, allData)
+
+                        if q.LimitValue &gt; 0 &amp;&amp; len(result) &gt;= q.LimitValue </span><span class="cov8" title="1">{
+                                break</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">return result</span>
+}
+
+func Operation(operator string, fieldValue interface{}, parsedValue int, value string, other []string) bool <span class="cov8" title="1">{
+        operator = strings.ToLower(operator)
+        switch operator </span>{
+        case "&gt;":<span class="cov8" title="1">
+                if fieldValue, ok := fieldValue.(int); ok </span><span class="cov8" title="1">{
+                        if fieldValue &gt; parsedValue </span><span class="cov8" title="1">{
+                                return true
+                        }</span>
+                }
+
+        case "&lt;":<span class="cov0" title="0">
+                if fieldValue, ok := fieldValue.(int); ok </span><span class="cov0" title="0">{
+                        if fieldValue &lt; parsedValue </span><span class="cov0" title="0">{
+                                return true
+                        }</span>
+                }
+
+        case "=":<span class="cov0" title="0">
+                parsedVal, err := strconv.Atoi(value)
+                if err != nil </span><span class="cov0" title="0">{
+                        return false
+                }</span>
+                <span class="cov0" title="0">if fieldValue.(int) == parsedVal</span><span class="cov0" title="0">{
+                        return true
+                }</span>
+
+        case "&gt;=":<span class="cov0" title="0">
+                if fieldValue, ok := fieldValue.(int); ok </span><span class="cov0" title="0">{
+                        if fieldValue &gt;= parsedValue </span><span class="cov0" title="0">{
+                                return true
+                        }</span>
+                }
+
+        case "&lt;=":<span class="cov0" title="0">
+                if fieldValue, ok := fieldValue.(int); ok </span><span class="cov0" title="0">{
+                        if fieldValue &lt;= parsedValue </span><span class="cov0" title="0">{
+                                return true
+                        }</span>
+                }
+
+        case "&lt;&gt;":<span class="cov0" title="0">
+                if fieldValue, ok := fieldValue.(int); ok </span><span class="cov0" title="0">{
+                        if fieldValue != parsedValue </span><span class="cov0" title="0">{
+                                return true
+                        }</span>
+                }
+
+        case "between":<span class="cov0" title="0">
+                first, err := strconv.Atoi(other[2])
+                second, err := strconv.Atoi(other[4])
+
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Fail convertion from %s to int: %v", other[4], err)
+                }</span>
+
+                <span class="cov0" title="0">if fieldValue, ok := fieldValue.(int); ok </span><span class="cov0" title="0">{
+                        if fieldValue &gt;= first &amp;&amp; fieldValue &lt;= second </span><span class="cov0" title="0">{
+                                return true
+                        }</span>
+                }
+
+        case "like":<span class="cov0" title="0"></span>
+                // TODO
+        case "in":<span class="cov0" title="0"></span>
+                // TODO        
+        default:<span class="cov0" title="0">
+                log.Fatalf("Operation not supported: %s", operator)</span>
+        }
+        <span class="cov0" title="0">return false</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package utils
+
+import (
+        "log"
+        "project/memory"
+        "project/models"
+        "project/orm/sql/components/queries"
+        "reflect"
+        "regexp"
+        "strings"
+)
+
+var EntityRegistry = map[string]interface{}{
+        "users": []models.User{},
+        "posts": []models.Post{},
+}
+
+type Query struct {
+        components.Query
+}
+
+func GetEntityType(name string) reflect.Type <span class="cov0" title="0">{
+        entity := EntityRegistry[name]
+
+        t := reflect.TypeOf(entity)
+        if t.Kind() == reflect.Slice </span><span class="cov0" title="0">{
+                t = t.Elem()
+        }</span>
+
+        <span class="cov0" title="0">return t</span>
+}
+
+func GetFieldsFromType(t reflect.Type) []string <span class="cov0" title="0">{
+        var fields []string
+
+        if t.Kind() != reflect.Struct </span><span class="cov0" title="0">{
+                return fields
+        }</span>
+
+        <span class="cov0" title="0">for i := 0; i &lt; t.NumField(); i++ </span><span class="cov0" title="0">{
+                field := t.Field(i)
+                fields = append(fields, field.Name)
+        }</span>
+
+        <span class="cov0" title="0">return fields</span>
+}
+
+
+func SetFields(entityType reflect.Type, columns []string, values []interface{}) reflect.Value <span class="cov0" title="0">{
+    v := reflect.New(entityType).Elem()
+    valueIndex := 0
+
+    for _, col := range columns </span><span class="cov0" title="0">{
+        if col == "ID" </span><span class="cov0" title="0">{
+            continue</span>
+        }
+        
+        <span class="cov0" title="0">field := v.FieldByName(col)
+
+        if field.IsValid() &amp;&amp; field.CanSet() </span><span class="cov0" title="0">{
+            val := reflect.ValueOf(values[valueIndex])
+
+            valueIndex++
+
+            if val.Type().ConvertibleTo(field.Type()) </span><span class="cov0" title="0">{
+                field.Set(val.Convert(field.Type()))
+            }</span> else<span class="cov0" title="0"> {
+                log.Printf("Le type de la valeur n'est pas convertible au champ: %s\n", col)
+            }</span>
+        } else<span class="cov0" title="0"> {
+            log.Printf("Champ invalide: %s\n", col)
+        }</span>
+    }
+    
+    <span class="cov0" title="0">return v</span>
+}
+
+func AppendToData(table string, obj reflect.Value) <span class="cov0" title="0">{
+    sliceVal := StructSliceToArray(table)
+
+    if obj.Kind() == reflect.Struct </span><span class="cov0" title="0">{
+        maxID := 0
+        for i := 0; i &lt; sliceVal.Len(); i++ </span><span class="cov0" title="0">{
+            item := sliceVal.Index(i)
+            idField := item.FieldByName("ID")
+            if idField.IsValid() &amp;&amp; idField.Kind() == reflect.Int </span><span class="cov0" title="0">{
+                id := int(idField.Int())
+                if id &gt; maxID </span><span class="cov0" title="0">{
+                    maxID = id
+                }</span>
+            }
+        }
+
+        <span class="cov0" title="0">idField := obj.FieldByName("ID")
+        if idField.IsValid() &amp;&amp; idField.CanSet() &amp;&amp; idField.Kind() == reflect.Int </span><span class="cov0" title="0">{
+            idField.SetInt(int64(maxID + 1))
+        }</span>
+    }
+
+    <span class="cov0" title="0">sliceVal.Set(reflect.Append(sliceVal, obj))</span>
+}
+
+
+func StructSliceToArray(table string) (reflect.Value) <span class="cov0" title="0">{
+        listPtr, ok := data.Store[table]
+    if !ok </span><span class="cov0" title="0">{
+        log.Fatalf("Table non trouvée : %s", table)
+    }</span>
+
+    <span class="cov0" title="0">slicePtrVal := reflect.ValueOf(listPtr)
+    if slicePtrVal.Kind() != reflect.Ptr </span><span class="cov0" title="0">{
+        log.Fatalf("Store[%s] n'est pas un pointeur", table)
+    }</span>
+
+        <span class="cov0" title="0">return slicePtrVal.Elem()</span>
+}
+
+func StructSliceToMapSlice(slice interface{}) []map[string]interface{} <span class="cov0" title="0">{
+    result := []map[string]interface{}{}
+    val := reflect.ValueOf(slice)
+
+    if val.Kind() != reflect.Slice &amp;&amp; val.Kind() != reflect.Ptr </span><span class="cov0" title="0">{
+        return result
+    }</span>
+
+    <span class="cov0" title="0">if val.Kind() == reflect.Ptr </span><span class="cov0" title="0">{
+        val = val.Elem()
+    }</span>
+
+    <span class="cov0" title="0">if val.Kind() != reflect.Slice </span><span class="cov0" title="0">{
+        return result
+    }</span>
+
+    <span class="cov0" title="0">for i := 0; i &lt; val.Len(); i++ </span><span class="cov0" title="0">{
+        item := val.Index(i)
+        itemMap := make(map[string]interface{})
+
+        for j := 0; j &lt; item.NumField(); j++ </span><span class="cov0" title="0">{
+            field := item.Type().Field(j)
+            fieldName := field.Name
+            fieldValue := item.Field(j).Interface()
+            itemMap[fieldName] = fieldValue
+        }</span>
+
+        <span class="cov0" title="0">result = append(result, itemMap)</span>
+    }
+
+    <span class="cov0" title="0">return result</span>
+}
+
+
+func EvaluateCondition(q *components.Query) bool <span class="cov0" title="0">{
+        condition := strings.TrimSpace(q.WhereClause)
+
+        if len(strings.Fields(condition)) &lt; 3 || condition == "" </span><span class="cov0" title="0">{
+                return false
+        }</span>
+
+        <span class="cov0" title="0">validConditionRegex := `^(?i)([\w\d_]+)\s*(=|!=|&lt;&gt;|&lt;|&lt;=|&gt;|&gt;=|BETWEEN|IN)\s*(.*)$`
+
+        re := regexp.MustCompile(validConditionRegex)
+
+        if !re.MatchString(condition) </span><span class="cov0" title="0">{
+                return false
+        }</span>
+
+        <span class="cov0" title="0">return true</span>
+}
+
+func FilterData(table string) ([]map[string]interface{}) <span class="cov0" title="0">{
+        slice := data.Store[table]
+        return StructSliceToMapSlice(slice)
+}</span>
+
+func FieldInsensitive(data map[string]interface{}, field string) string <span class="cov0" title="0">{
+        field = strings.ToLower(field)
+
+        for key := range data </span><span class="cov0" title="0">{
+                if strings.ToLower(key) == field </span><span class="cov0" title="0">{
+                        return key
+                }</span>
+        }
+
+        <span class="cov0" title="0">return ""</span>
+}
+
+func AsterixValue(q *components.Query, data map[string]interface{}) []string <span class="cov0" title="0">{
+        if q.Fields[0] == "*" </span><span class="cov0" title="0">{
+                q.Fields = []string{}
+                for key := range data </span><span class="cov0" title="0">{
+                        q.Fields = append(q.Fields, key)
+                }</span>
+        }
+        <span class="cov0" title="0">return q.Fields</span>
+}</pre>
+		
+		<pre class="file" id="file20" style="display: none">package repository
+
+import (
+        "project/memory"
+        "reflect"
+        "project/orm/utils"
+)
+
+func FindAll(table string) []map[string]interface{} <span class="cov0" title="0">{
+        slice := data.Store[table]
+        return utils.StructSliceToMapSlice(slice)
+}</span>
+
+func FindBy(table string, field string, value interface{}) []map[string]interface{} <span class="cov0" title="0">{
+        all := FindAll(table)
+        result := []map[string]interface{}{}
+
+        for _, row := range all </span><span class="cov0" title="0">{
+                if rowVal, ok := row[field]; ok &amp;&amp; reflect.DeepEqual(rowVal, value) </span><span class="cov0" title="0">{
+                        result = append(result, row)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return result</span>
+}
+
+func FindOneBy(table string, field string, value interface{}) map[string]interface{} <span class="cov0" title="0">{
+        matches := FindBy(table, field, value)
+        if len(matches) &gt; 0 </span><span class="cov0" title="0">{
+                return matches[0]
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+func Find(table string, criteria map[string]interface{}) []map[string]interface{} <span class="cov0" title="0">{
+        all := FindAll(table)
+        result := []map[string]interface{}{}
+
+        for _, row := range all </span><span class="cov0" title="0">{
+                match := true
+                for field, val := range criteria </span><span class="cov0" title="0">{
+                        if rowVal, ok := row[field]; !ok || rowVal != val </span><span class="cov0" title="0">{
+                                match = false
+                                break</span>
+                        }
+                }
+                <span class="cov0" title="0">if match </span><span class="cov0" title="0">{
+                        result = append(result, row)
+                }</span>
+        }
+        <span class="cov0" title="0">return result</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
