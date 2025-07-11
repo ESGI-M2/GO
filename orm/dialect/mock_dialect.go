@@ -10,6 +10,16 @@ import (
 	"project/orm/core/interfaces"
 )
 
+// NewMockDialect creates a new mock dialect for testing
+func NewMockDialect() *MockDialect {
+	return &MockDialect{
+		connected:  false,
+		execError:  nil,
+		queryError: nil,
+		beginError: nil,
+	}
+}
+
 // MockDialect implements the Dialect interface for testing
 type MockDialect struct {
 	connected  bool
