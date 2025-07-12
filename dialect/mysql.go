@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"github.com/ESGI-M2/GO/orm/core/interfaces"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -212,6 +213,26 @@ func (m *MySQLDialect) GetSQLType(goType reflect.Type) string {
 // GetPlaceholder returns the placeholder for parameterized queries
 func (m *MySQLDialect) GetPlaceholder(index int) string {
 	return "?"
+}
+
+// FullTextSearch returns MySQL full-text search syntax
+func (m *MySQLDialect) FullTextSearch(field, query string) string {
+	return fmt.Sprintf("MATCH(%s) AGAINST('%s' IN BOOLEAN MODE)", field, query)
+}
+
+// GetRandomFunction returns MySQL RAND() function
+func (m *MySQLDialect) GetRandomFunction() string {
+	return "RAND()"
+}
+
+// GetDateFunction returns MySQL NOW() function
+func (m *MySQLDialect) GetDateFunction() string {
+	return "NOW()"
+}
+
+// GetJSONExtract returns MySQL JSON_EXTRACT function
+func (m *MySQLDialect) GetJSONExtract() string {
+	return "JSON_EXTRACT"
 }
 
 // buildColumnDefinition builds a MySQL column definition
