@@ -136,6 +136,22 @@ func (m *MockDialect) GetPlaceholder(index int) string {
 	return "?"
 }
 
+func (m *MockDialect) FullTextSearch(field, query string) string {
+	return "MOCK_FULLTEXT_SEARCH(" + field + ", '" + query + "')"
+}
+
+func (m *MockDialect) GetDateFunction() string {
+	return "MOCK_DATE()"
+}
+
+func (m *MockDialect) GetJSONExtract() string {
+	return "MOCK_JSON_EXTRACT"
+}
+
+func (m *MockDialect) GetRandomFunction() string {
+	return "MOCK_RANDOM()"
+}
+
 // MockSQLResult for testing
 type MockSQLResult struct {
 	lastInsertID int64

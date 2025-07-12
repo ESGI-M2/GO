@@ -80,6 +80,26 @@ func (td *TransactionDialect) GetPlaceholder(index int) string {
 	return "?"
 }
 
+// FullTextSearch is not supported for transaction dialect
+func (td *TransactionDialect) FullTextSearch(field, query string) string {
+	return "TX_FULLTEXT_SEARCH(" + field + ", '" + query + "')"
+}
+
+// GetRandomFunction is not supported for transaction dialect
+func (td *TransactionDialect) GetRandomFunction() string {
+	return "TX_RANDOM()"
+}
+
+// GetDateFunction is not supported for transaction dialect
+func (td *TransactionDialect) GetDateFunction() string {
+	return "TX_DATE()"
+}
+
+// GetJSONExtract is not supported for transaction dialect
+func (td *TransactionDialect) GetJSONExtract() string {
+	return "TX_JSON_EXTRACT"
+}
+
 // Transaction executes a function within a transaction
 func Transaction(orm *connection.ORMImpl, fn func(interfaces.ORM) error) error {
 	tx, err := orm.GetDialect().Begin()

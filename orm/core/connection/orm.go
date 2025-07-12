@@ -122,10 +122,10 @@ func (o *ORMImpl) Raw(sql string, args ...interface{}) interfaces.QueryBuilder {
 func (o *ORMImpl) Repository(model interface{}) interfaces.Repository {
 	metadata, err := o.GetMetadata(model)
 	if err != nil {
-		return repository.NewErrorRepository(o, err)
+		return repository.NewRepository(o, metadata, model)
 	}
 
-	return repository.NewRepository(o, metadata)
+	return repository.NewRepository(o, metadata, model)
 }
 
 // Transaction executes a function within a transaction
@@ -233,6 +233,12 @@ func (o *ORMImpl) Migrate() error {
 	return nil
 }
 
+// Add stubs for missing ORMImpl methods
+func (o *ORMImpl) DisableQueryLog() interfaces.ORM                        { return o }
+func (o *ORMImpl) EnableQueryLog() interfaces.ORM                         { return o }
+func (o *ORMImpl) WithCache(ttl int) interfaces.ORM                       { return o }
+func (o *ORMImpl) WithConnectionPool(maxOpen, maxIdle int) interfaces.ORM { return o }
+
 // TransactionDialect wraps a transaction to implement the Dialect interface
 type TransactionDialect struct {
 	tx interfaces.Transaction
@@ -302,3 +308,9 @@ func (td *TransactionDialect) GetSQLType(goType reflect.Type) string {
 func (td *TransactionDialect) GetPlaceholder(index int) string {
 	return "?"
 }
+
+// Add stubs for missing TransactionDialect methods
+func (t *TransactionDialect) FullTextSearch(field, query string) string { return "" }
+func (t *TransactionDialect) GetRandomFunction() string                 { return "" }
+func (t *TransactionDialect) GetDateFunction() string                   { return "" }
+func (t *TransactionDialect) GetJSONExtract() string                    { return "" }

@@ -29,21 +29,42 @@ type BuilderImpl struct {
 	// Raw SQL
 	rawSQL  string
 	rawArgs []interface{}
+
+	// New advanced features
+	distinct      bool
+	lockType      string
+	withRelations map[string]func(interfaces.QueryBuilder) interfaces.QueryBuilder
+	withCounts    []string
+	withExists    map[string]func(interfaces.QueryBuilder) interfaces.QueryBuilder
+	cacheTTL      int
+	useCache      bool
+	subQueries    map[string]interfaces.QueryBuilder
+	unions        []interfaces.QueryBuilder
+	unionAlls     []interfaces.QueryBuilder
+	cursorField   string
+	cursorValue   interface{}
+	page          int
+	perPage       int
 }
 
 // NewBuilder creates a new query builder
 func NewBuilder(orm interfaces.ORM, metadata *interfaces.ModelMetadata) *BuilderImpl {
 	return &BuilderImpl{
-		Orm:      orm,
-		Metadata: metadata,
-		table:    metadata.TableName,
-		fields:   []string{"*"},
-		where:    make([]interfaces.WhereCondition, 0),
-		orderBy:  make([]interfaces.OrderBy, 0),
-		joins:    make([]interfaces.Join, 0),
-		limit:    0,
-		offset:   0,
-		args:     make([]interface{}, 0),
+		Orm:           orm,
+		Metadata:      metadata,
+		table:         metadata.TableName,
+		fields:        []string{"*"},
+		where:         make([]interfaces.WhereCondition, 0),
+		orderBy:       make([]interfaces.OrderBy, 0),
+		joins:         make([]interfaces.Join, 0),
+		limit:         0,
+		offset:        0,
+		args:          make([]interface{}, 0),
+		withRelations: make(map[string]func(interfaces.QueryBuilder) interfaces.QueryBuilder),
+		withExists:    make(map[string]func(interfaces.QueryBuilder) interfaces.QueryBuilder),
+		subQueries:    make(map[string]interfaces.QueryBuilder),
+		unions:        make([]interfaces.QueryBuilder, 0),
+		unionAlls:     make([]interfaces.QueryBuilder, 0),
 	}
 }
 
@@ -154,6 +175,369 @@ func (qb *BuilderImpl) WhereNotIn(field string, values []interface{}) interfaces
 	return qb
 }
 
+// WhereOr adds OR conditions
+func (qb *BuilderImpl) WhereOr(conditions ...interfaces.WhereCondition) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	if len(conditions) == 0 {
+		return qb
+	}
+
+	// Group OR conditions
+	var orConditions []string
+	for _, condition := range conditions {
+		if condition.Field != "" {
+			if condition.Operator != "" && condition.Value != nil {
+				orConditions = append(orConditions, fmt.Sprintf("%s %s ?", condition.Field, condition.Operator))
+				qb.args = append(qb.args, condition.Value)
+			} else if condition.Field != "" {
+				orConditions = append(orConditions, condition.Field)
+			}
+		}
+	}
+
+	if len(orConditions) > 0 {
+		condition := fmt.Sprintf("(%s)", strings.Join(orConditions, " OR "))
+		qb.where = append(qb.where, interfaces.WhereCondition{
+			Field:    condition,
+			Operator: "",
+			Value:    nil,
+			Logical:  "AND",
+		})
+	}
+
+	return qb
+}
+
+// WhereRaw adds a raw WHERE condition
+func (qb *BuilderImpl) WhereRaw(condition string, args ...interface{}) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    condition,
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+		Raw:      true,
+	})
+
+	qb.args = append(qb.args, args...)
+	return qb
+}
+
+// WhereBetween adds a WHERE BETWEEN condition
+func (qb *BuilderImpl) WhereBetween(field string, min, max interface{}) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    fmt.Sprintf("%s BETWEEN ? AND ?", field),
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, min, max)
+	return qb
+}
+
+// WhereNotBetween adds a WHERE NOT BETWEEN condition
+func (qb *BuilderImpl) WhereNotBetween(field string, min, max interface{}) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    fmt.Sprintf("%s NOT BETWEEN ? AND ?", field),
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, min, max)
+	return qb
+}
+
+// WhereNull adds a WHERE IS NULL condition
+func (qb *BuilderImpl) WhereNull(field string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    fmt.Sprintf("%s IS NULL", field),
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+	})
+
+	return qb
+}
+
+// WhereNotNull adds a WHERE IS NOT NULL condition
+func (qb *BuilderImpl) WhereNotNull(field string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    fmt.Sprintf("%s IS NOT NULL", field),
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+	})
+
+	return qb
+}
+
+// WhereLike adds a WHERE LIKE condition
+func (qb *BuilderImpl) WhereLike(field, pattern string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    field,
+		Operator: "LIKE",
+		Value:    pattern,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, pattern)
+	return qb
+}
+
+// WhereNotLike adds a WHERE NOT LIKE condition
+func (qb *BuilderImpl) WhereNotLike(field, pattern string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    field,
+		Operator: "NOT LIKE",
+		Value:    pattern,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, pattern)
+	return qb
+}
+
+// WhereRegexp adds a WHERE REGEXP condition
+func (qb *BuilderImpl) WhereRegexp(field, pattern string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    field,
+		Operator: "REGEXP",
+		Value:    pattern,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, pattern)
+	return qb
+}
+
+// WhereNotRegexp adds a WHERE NOT REGEXP condition
+func (qb *BuilderImpl) WhereNotRegexp(field, pattern string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    field,
+		Operator: "NOT REGEXP",
+		Value:    pattern,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, pattern)
+	return qb
+}
+
+// FullTextSearch adds a full-text search condition
+func (qb *BuilderImpl) FullTextSearch(fields []string, query string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	fieldsStr := strings.Join(fields, ", ")
+	condition := fmt.Sprintf("MATCH(%s) AGAINST(? IN BOOLEAN MODE)", fieldsStr)
+
+	qb.where = append(qb.where, interfaces.WhereCondition{
+		Field:    condition,
+		Operator: "",
+		Value:    nil,
+		Logical:  "AND",
+	})
+
+	qb.args = append(qb.args, query)
+	return qb
+}
+
+// SubQuery adds a subquery
+func (qb *BuilderImpl) SubQuery(alias string, fn func(interfaces.QueryBuilder) interfaces.QueryBuilder) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	subQuery := NewBuilder(qb.Orm, qb.Metadata)
+	subQuery = fn(subQuery).(*BuilderImpl)
+
+	qb.subQueries[alias] = subQuery
+	return qb
+}
+
+// With adds eager loading for relations
+func (qb *BuilderImpl) With(relation string, fn func(interfaces.QueryBuilder) interfaces.QueryBuilder) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.withRelations[relation] = fn
+	return qb
+}
+
+// WithCount adds count for relations
+func (qb *BuilderImpl) WithCount(relation string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.withCounts = append(qb.withCounts, relation)
+	return qb
+}
+
+// WithExists adds exists condition for relations
+func (qb *BuilderImpl) WithExists(relation string, fn func(interfaces.QueryBuilder) interfaces.QueryBuilder) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.withExists[relation] = fn
+	return qb
+}
+
+// CursorPaginate adds cursor-based pagination
+func (qb *BuilderImpl) CursorPaginate(cursorField string, cursorValue interface{}, limit int) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.cursorField = cursorField
+	qb.cursorValue = cursorValue
+	qb.limit = limit
+
+	if cursorValue != nil {
+		qb.Where(cursorField, ">", cursorValue)
+	}
+
+	return qb
+}
+
+// OffsetPaginate adds offset-based pagination
+func (qb *BuilderImpl) OffsetPaginate(page, perPage int) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.page = page
+	qb.perPage = perPage
+	qb.offset = (page - 1) * perPage
+	qb.limit = perPage
+
+	return qb
+}
+
+// ForUpdate adds FOR UPDATE lock
+func (qb *BuilderImpl) ForUpdate() interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.lockType = "FOR UPDATE"
+	return qb
+}
+
+// ForShare adds FOR SHARE lock
+func (qb *BuilderImpl) ForShare() interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.lockType = "FOR SHARE"
+	return qb
+}
+
+// Distinct adds DISTINCT clause
+func (qb *BuilderImpl) Distinct() interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.distinct = true
+	return qb
+}
+
+// Union adds UNION clause
+func (qb *BuilderImpl) Union(other interfaces.QueryBuilder) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.unions = append(qb.unions, other)
+	return qb
+}
+
+// UnionAll adds UNION ALL clause
+func (qb *BuilderImpl) UnionAll(other interfaces.QueryBuilder) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.unionAlls = append(qb.unionAlls, other)
+	return qb
+}
+
+// Lock adds a lock clause
+func (qb *BuilderImpl) Lock(lockType string) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.lockType = lockType
+	return qb
+}
+
+// Cache enables query caching
+func (qb *BuilderImpl) Cache(ttl int) interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.useCache = true
+	qb.cacheTTL = ttl
+	return qb
+}
+
+// WithoutCache disables query caching
+func (qb *BuilderImpl) WithoutCache() interfaces.QueryBuilder {
+	if qb.Err != nil {
+		return qb
+	}
+
+	qb.useCache = false
+	return qb
+}
+
 // OrderBy adds an ORDER BY clause
 func (qb *BuilderImpl) OrderBy(field, direction string) interfaces.QueryBuilder {
 	if qb.Err != nil {
@@ -254,7 +638,76 @@ func (qb *BuilderImpl) GetSQL() string {
 	if qb.rawSQL != "" {
 		return qb.rawSQL
 	}
-	return qb.buildQuery()
+
+	var parts []string
+
+	// SELECT clause
+	if qb.distinct {
+		parts = append(parts, "SELECT DISTINCT", strings.Join(qb.fields, ", "))
+	} else {
+		parts = append(parts, "SELECT", strings.Join(qb.fields, ", "))
+	}
+
+	// FROM clause
+	parts = append(parts, "FROM", qb.table)
+
+	// JOIN clauses
+	for _, join := range qb.joins {
+		parts = append(parts, fmt.Sprintf("%s JOIN %s ON %s", join.Type, join.Table, join.Condition))
+	}
+
+	// WHERE clause
+	if len(qb.where) > 0 {
+		var conditions []string
+		for _, condition := range qb.where {
+			if condition.Field != "" {
+				if condition.Operator != "" && condition.Value != nil {
+					conditions = append(conditions, fmt.Sprintf("%s %s ?", condition.Field, condition.Operator))
+				} else if condition.Field != "" {
+					conditions = append(conditions, condition.Field)
+				}
+			}
+		}
+		if len(conditions) > 0 {
+			parts = append(parts, "WHERE", strings.Join(conditions, " AND "))
+		}
+	}
+
+	// GROUP BY clause
+	if len(qb.groupBy) > 0 {
+		parts = append(parts, "GROUP BY", strings.Join(qb.groupBy, ", "))
+	}
+
+	// HAVING clause
+	if qb.having != "" {
+		parts = append(parts, "HAVING", qb.having)
+	}
+
+	// ORDER BY clause
+	if len(qb.orderBy) > 0 {
+		var orders []string
+		for _, order := range qb.orderBy {
+			orders = append(orders, fmt.Sprintf("%s %s", order.Field, order.Direction))
+		}
+		parts = append(parts, "ORDER BY", strings.Join(orders, ", "))
+	}
+
+	// LIMIT clause
+	if qb.limit > 0 {
+		parts = append(parts, fmt.Sprintf("LIMIT %d", qb.limit))
+	}
+
+	// OFFSET clause
+	if qb.offset > 0 {
+		parts = append(parts, fmt.Sprintf("OFFSET %d", qb.offset))
+	}
+
+	// Lock clause
+	if qb.lockType != "" {
+		parts = append(parts, qb.lockType)
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // GetArgs returns the query arguments
@@ -262,5 +715,9 @@ func (qb *BuilderImpl) GetArgs() []interface{} {
 	if qb.rawSQL != "" {
 		return qb.rawArgs
 	}
-	return qb.args
+
+	args := make([]interface{}, 0)
+	args = append(args, qb.args...)
+	args = append(args, qb.havingArgs...)
+	return args
 }

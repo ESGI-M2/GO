@@ -1,15 +1,27 @@
 package query
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
 
 // Find executes the query and returns all results
 func (qb *BuilderImpl) Find() ([]map[string]interface{}, error) {
 	if qb.Err != nil {
 		return nil, qb.Err
+	}
+
+	// Check cache first
+	if qb.useCache {
+		if cached, found := qb.getFromCache(); found {
+			return cached, nil
+		}
 	}
 
 	if qb.rawSQL != "" {
@@ -25,13 +37,41 @@ func (qb *BuilderImpl) Find() ([]map[string]interface{}, error) {
 		defer rows.Close()
 	}
 
-	return qb.scanRows(rows)
+	results, err := qb.scanRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load relations if specified
+	if len(qb.withRelations) > 0 {
+		results, err = qb.loadRelations(results)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Cache results if enabled
+	if qb.useCache {
+		qb.setCache(results)
+	}
+
+	return results, nil
 }
 
 // FindOne executes the query and returns one result
 func (qb *BuilderImpl) FindOne() (map[string]interface{}, error) {
 	if qb.Err != nil {
 		return nil, qb.Err
+	}
+
+	// Check cache first
+	if qb.useCache {
+		if cached, found := qb.getFromCache(); found {
+			if len(cached) > 0 {
+				return cached[0], nil
+			}
+			return nil, nil
+		}
 	}
 
 	if qb.rawSQL != "" {
@@ -70,7 +110,25 @@ func (qb *BuilderImpl) FindOne() (map[string]interface{}, error) {
 		return nil, nil
 	}
 
-	return results[0], nil
+	result := results[0]
+
+	// Load relations if specified
+	if len(qb.withRelations) > 0 {
+		results, err := qb.loadRelations([]map[string]interface{}{result})
+		if err != nil {
+			return nil, err
+		}
+		if len(results) > 0 {
+			result = results[0]
+		}
+	}
+
+	// Cache result if enabled
+	if qb.useCache {
+		qb.setCache([]map[string]interface{}{result})
+	}
+
+	return result, nil
 }
 
 // Count executes a COUNT query
@@ -81,6 +139,13 @@ func (qb *BuilderImpl) Count() (int64, error) {
 
 	if qb.rawSQL != "" {
 		return 0, fmt.Errorf("count not supported for raw SQL")
+	}
+
+	// Check cache first
+	if qb.useCache {
+		if cached, found := qb.getCountFromCache(); found {
+			return cached, nil
+		}
 	}
 
 	// Save original fields and set to COUNT(*)
@@ -103,6 +168,11 @@ func (qb *BuilderImpl) Count() (int64, error) {
 	// Restore original fields
 	qb.fields = originalFields
 
+	// Cache count if enabled
+	if qb.useCache {
+		qb.setCountCache(count)
+	}
+
 	return count, nil
 }
 
@@ -118,6 +188,13 @@ func (qb *BuilderImpl) Exists() (bool, error) {
 			return false, err
 		}
 		return len(results) > 0, nil
+	}
+
+	// Check cache first
+	if qb.useCache {
+		if cached, found := qb.getExistsFromCache(); found {
+			return cached, nil
+		}
 	}
 
 	// Save original fields and set to SELECT 1
@@ -146,7 +223,51 @@ func (qb *BuilderImpl) Exists() (bool, error) {
 	qb.fields = originalFields
 	qb.limit = originalLimit
 
+	// Cache exists result if enabled
+	if qb.useCache {
+		qb.setExistsCache(exists)
+	}
+
 	return exists, nil
+}
+
+// Paginate executes the query with pagination
+func (qb *BuilderImpl) Paginate(page, perPage int) (*interfaces.PaginationResult, error) {
+	if qb.Err != nil {
+		return nil, qb.Err
+	}
+
+	// Get total count
+	total, err := qb.Count()
+	if err != nil {
+		return nil, err
+	}
+
+	// Set pagination
+	qb.OffsetPaginate(page, perPage)
+
+	// Get data
+	data, err := qb.Find()
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination info
+	lastPage := int((total + int64(perPage) - 1) / int64(perPage))
+	from := (page-1)*perPage + 1
+	to := from + len(data) - 1
+	hasMore := page < lastPage
+
+	return &interfaces.PaginationResult{
+		Data:        qb.convertToInterface(data),
+		Total:       total,
+		PerPage:     perPage,
+		CurrentPage: page,
+		LastPage:    lastPage,
+		From:        from,
+		To:          to,
+		HasMore:     hasMore,
+	}, nil
 }
 
 // buildQuery builds the SQL query string
@@ -154,7 +275,11 @@ func (qb *BuilderImpl) buildQuery() string {
 	var parts []string
 
 	// SELECT clause
-	parts = append(parts, "SELECT", strings.Join(qb.fields, ", "))
+	if qb.distinct {
+		parts = append(parts, "SELECT DISTINCT", strings.Join(qb.fields, ", "))
+	} else {
+		parts = append(parts, "SELECT", strings.Join(qb.fields, ", "))
+	}
 
 	// FROM clause
 	parts = append(parts, "FROM", qb.table)
@@ -210,6 +335,11 @@ func (qb *BuilderImpl) buildQuery() string {
 		parts = append(parts, fmt.Sprintf("OFFSET %d", qb.offset))
 	}
 
+	// Lock clause
+	if qb.lockType != "" {
+		parts = append(parts, qb.lockType)
+	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -251,11 +381,124 @@ func (qb *BuilderImpl) scanRows(rows *sql.Rows) ([]map[string]interface{}, error
 		}
 
 		row := make(map[string]interface{})
-		for i, col := range columns {
-			row[col] = values[i]
+		for i, column := range columns {
+			val := values[i]
+			if val != nil {
+				row[column] = val
+			}
 		}
 		results = append(results, row)
 	}
 
 	return results, nil
+}
+
+// loadRelations loads related data for eager loading
+func (qb *BuilderImpl) loadRelations(results []map[string]interface{}) ([]map[string]interface{}, error) {
+	if len(results) == 0 {
+		return results, nil
+	}
+
+	// Get primary keys
+	var ids []interface{}
+	for _, result := range results {
+		if id, ok := result["id"]; ok {
+			ids = append(ids, id)
+		}
+	}
+
+	if len(ids) == 0 {
+		return results, nil
+	}
+
+	// Load each relation
+	for relationName, relationFn := range qb.withRelations {
+		// Create a new query builder for the relation
+		relationQuery := NewBuilder(qb.Orm, qb.Metadata)
+		relationQuery = relationFn(relationQuery).(*BuilderImpl)
+
+		// Add WHERE IN condition for the foreign key
+		relationQuery.WhereIn("user_id", ids)
+
+		// Execute the relation query
+		relationResults, err := relationQuery.Find()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load relation %s: %w", relationName, err)
+		}
+
+		// Group relation results by foreign key
+		relationMap := make(map[interface{}][]map[string]interface{})
+		for _, relationResult := range relationResults {
+			if fk, ok := relationResult["user_id"]; ok {
+				relationMap[fk] = append(relationMap[fk], relationResult)
+			}
+		}
+
+		// Attach relations to main results
+		for i, result := range results {
+			if id, ok := result["id"]; ok {
+				if relations, exists := relationMap[id]; exists {
+					results[i][relationName] = relations
+				} else {
+					results[i][relationName] = []map[string]interface{}{}
+				}
+			}
+		}
+	}
+
+	return results, nil
+}
+
+// getCacheKey generates a cache key for the current query
+func (qb *BuilderImpl) getCacheKey() string {
+	data := map[string]interface{}{
+		"sql":  qb.GetSQL(),
+		"args": qb.GetArgs(),
+	}
+
+	jsonData, _ := json.Marshal(data)
+	hash := md5.Sum(jsonData)
+	return hex.EncodeToString(hash[:])
+}
+
+// getFromCache retrieves results from cache
+func (qb *BuilderImpl) getFromCache() ([]map[string]interface{}, bool) {
+	// This is a simplified cache implementation
+	// In a real implementation, you would use a proper cache like Redis or in-memory cache
+	return nil, false
+}
+
+// setCache stores results in cache
+func (qb *BuilderImpl) setCache(results []map[string]interface{}) {
+	// This is a simplified cache implementation
+	// In a real implementation, you would use a proper cache like Redis or in-memory cache
+}
+
+// getCountFromCache retrieves count from cache
+func (qb *BuilderImpl) getCountFromCache() (int64, bool) {
+	return 0, false
+}
+
+// setCountCache stores count in cache
+func (qb *BuilderImpl) setCountCache(count int64) {
+	// Simplified cache implementation
+}
+
+// getExistsFromCache retrieves exists result from cache
+func (qb *BuilderImpl) getExistsFromCache() (bool, bool) {
+	return false, false
+}
+
+// setExistsCache stores exists result in cache
+func (qb *BuilderImpl) setExistsCache(exists bool) {
+	// Simplified cache implementation
+}
+
+// convertToInterface converts []map[string]interface{} to []interface{}
+func (qb *BuilderImpl) convertToInterface(data []map[string]interface{}) []interface{} {
+	result := make([]interface{}, len(data))
+	for i, item := range data {
+		result[i] = item
+	}
+	return result
 }

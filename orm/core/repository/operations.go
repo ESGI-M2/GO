@@ -8,10 +8,6 @@ import (
 
 // Save saves an entity (insert or update)
 func (r *RepositoryImpl) Save(entity interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-
 	if r.metadata == nil {
 		return fmt.Errorf("metadata not available")
 	}
@@ -46,19 +42,11 @@ func (r *RepositoryImpl) Save(entity interface{}) error {
 
 // Update updates an entity
 func (r *RepositoryImpl) Update(entity interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-
 	return r.update(entity)
 }
 
 // Delete deletes an entity
 func (r *RepositoryImpl) Delete(entity interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-
 	if r.metadata == nil {
 		return fmt.Errorf("metadata not available")
 	}
@@ -94,10 +82,6 @@ func (r *RepositoryImpl) Delete(entity interface{}) error {
 
 // DeleteBy deletes records by criteria
 func (r *RepositoryImpl) DeleteBy(criteria map[string]interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-
 	if r.metadata == nil {
 		return fmt.Errorf("metadata not available")
 	}

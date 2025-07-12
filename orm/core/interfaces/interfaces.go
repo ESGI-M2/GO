@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
+	"time"
 )
 
 // ORM defines the main ORM interface
@@ -22,6 +23,11 @@ type ORM interface {
 	CreateTable(model interface{}) error
 	DropTable(model interface{}) error
 	Migrate() error
+	// New advanced features
+	WithCache(ttl int) ORM
+	WithConnectionPool(maxOpen, maxIdle int) ORM
+	EnableQueryLog() ORM
+	DisableQueryLog() ORM
 }
 
 // Dialect defines the database dialect interface
@@ -39,6 +45,11 @@ type Dialect interface {
 	TableExists(tableName string) (bool, error)
 	GetSQLType(goType reflect.Type) string
 	GetPlaceholder(index int) string
+	// New advanced features
+	FullTextSearch(field, query string) string
+	GetRandomFunction() string
+	GetDateFunction() string
+	GetJSONExtract() string
 }
 
 // Transaction defines the transaction interface
@@ -73,6 +84,32 @@ type QueryBuilder interface {
 	Raw(sql string, args ...interface{}) QueryBuilder
 	GetSQL() string
 	GetArgs() []interface{}
+	// New advanced features
+	WhereOr(conditions ...WhereCondition) QueryBuilder
+	WhereRaw(condition string, args ...interface{}) QueryBuilder
+	WhereBetween(field string, min, max interface{}) QueryBuilder
+	WhereNotBetween(field string, min, max interface{}) QueryBuilder
+	WhereNull(field string) QueryBuilder
+	WhereNotNull(field string) QueryBuilder
+	WhereLike(field, pattern string) QueryBuilder
+	WhereNotLike(field, pattern string) QueryBuilder
+	WhereRegexp(field, pattern string) QueryBuilder
+	WhereNotRegexp(field, pattern string) QueryBuilder
+	FullTextSearch(fields []string, query string) QueryBuilder
+	SubQuery(alias string, fn func(QueryBuilder) QueryBuilder) QueryBuilder
+	With(relation string, fn func(QueryBuilder) QueryBuilder) QueryBuilder
+	WithCount(relation string) QueryBuilder
+	WithExists(relation string, fn func(QueryBuilder) QueryBuilder) QueryBuilder
+	CursorPaginate(cursorField string, cursorValue interface{}, limit int) QueryBuilder
+	OffsetPaginate(page, perPage int) QueryBuilder
+	ForUpdate() QueryBuilder
+	ForShare() QueryBuilder
+	Distinct() QueryBuilder
+	Union(other QueryBuilder) QueryBuilder
+	UnionAll(other QueryBuilder) QueryBuilder
+	Lock(lockType string) QueryBuilder
+	Cache(ttl int) QueryBuilder
+	WithoutCache() QueryBuilder
 }
 
 // Repository defines the repository interface
@@ -87,6 +124,25 @@ type Repository interface {
 	DeleteBy(criteria map[string]interface{}) error
 	Count() (int64, error)
 	Exists(id interface{}) (bool, error)
+	// New advanced features
+	FindWithRelations(id interface{}, relations ...string) (interface{}, error)
+	FindAllWithRelations(relations ...string) ([]interface{}, error)
+	FindByWithRelations(criteria map[string]interface{}, relations ...string) ([]interface{}, error)
+	BatchCreate(entities []interface{}) error
+	BatchUpdate(entities []interface{}) error
+	BatchDelete(entities []interface{}) error
+	SoftDelete(entity interface{}) error
+	Restore(entity interface{}) error
+	ForceDelete(entity interface{}) error
+	FindTrashed() ([]interface{}, error)
+	RestoreBy(criteria map[string]interface{}) error
+	Scope(name string, args ...interface{}) Repository
+	Chunk(size int, fn func([]interface{}) error) error
+	Each(fn func(interface{}) error) error
+	Pluck(field string) ([]interface{}, error)
+	Value(field string) (interface{}, error)
+	Increment(field string, amount interface{}) error
+	Decrement(field string, amount interface{}) error
 }
 
 // ConnectionConfig defines database connection configuration
@@ -97,6 +153,14 @@ type ConnectionConfig struct {
 	Password string
 	Database string
 	SSLMode  string
+	// New advanced features
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime int // in seconds
+	ConnMaxIdleTime int // in seconds
+	QueryTimeout    int // in seconds
+	EnableQueryLog  bool
+	CacheTTL        int // in seconds
 }
 
 // Column represents a database column
@@ -111,6 +175,20 @@ type Column struct {
 	Nullable      bool
 	Default       interface{}
 	ForeignKey    *ForeignKey
+	// New advanced features
+	SoftDelete bool
+	Timestamp  bool
+	JSON       bool
+	FullText   bool
+	Encrypted  bool
+	Validation []ValidationRule
+}
+
+// ValidationRule represents a validation rule
+type ValidationRule struct {
+	Type    string
+	Value   interface{}
+	Message string
 }
 
 // ForeignKey represents a foreign key constraint
@@ -126,6 +204,9 @@ type Index struct {
 	Name    string
 	Columns []string
 	Unique  bool
+	// New advanced features
+	Type    string // BTREE, HASH, GIN, etc.
+	Partial string // partial index condition
 }
 
 // Relation represents a relationship between models
@@ -136,6 +217,16 @@ type Relation struct {
 	ReferencedKey string
 	JoinTable     string
 	Lazy          bool
+	// New advanced features
+	Eager          bool
+	Cascade        bool
+	Polymorphic    bool
+	MorphType      string
+	MorphID        string
+	Through        string
+	WithPivot      []string
+	As             string
+	WithTimestamps bool
 }
 
 // RelationType represents the type of relationship
@@ -146,6 +237,15 @@ const (
 	OneToMany
 	ManyToOne
 	ManyToMany
+	HasOne
+	HasMany
+	BelongsTo
+	BelongsToMany
+	MorphOne
+	MorphMany
+	MorphTo
+	MorphToMany
+	MorphedByMany
 )
 
 // ModelMetadata represents metadata for a model
@@ -157,6 +257,34 @@ type ModelMetadata struct {
 	AutoIncrement string
 	Relations     map[string]*Relation
 	Indexes       []Index
+	// New advanced features
+	SoftDeletes bool
+	Timestamps  bool
+	CreatedAt   string
+	UpdatedAt   string
+	DeletedAt   string
+	Hooks       *ModelHooks
+	Scopes      map[string]func(QueryBuilder) QueryBuilder
+	Validation  []ValidationRule
+	Hidden      []string
+	Visible     []string
+	Fillable    []string
+	Guarded     []string
+	Appends     []string
+	Casts       map[string]string
+	Events      map[string][]func(interface{}) error
+}
+
+// ModelHooks represents model lifecycle hooks
+type ModelHooks struct {
+	BeforeCreate []func(interface{}) error
+	AfterCreate  []func(interface{}) error
+	BeforeUpdate []func(interface{}) error
+	AfterUpdate  []func(interface{}) error
+	BeforeDelete []func(interface{}) error
+	AfterDelete  []func(interface{}) error
+	BeforeSave   []func(interface{}) error
+	AfterSave    []func(interface{}) error
 }
 
 // WhereCondition represents a WHERE clause condition
@@ -165,6 +293,10 @@ type WhereCondition struct {
 	Operator string
 	Value    interface{}
 	Logical  string // AND, OR
+	// New advanced features
+	Raw      bool
+	SubQuery QueryBuilder
+	Nested   []WhereCondition
 }
 
 // OrderBy represents an ORDER BY clause
@@ -178,4 +310,46 @@ type Join struct {
 	Type      string // INNER, LEFT, RIGHT, FULL
 	Table     string
 	Condition string
+	// New advanced features
+	Alias    string
+	SubQuery QueryBuilder
+}
+
+// PaginationResult represents pagination result
+type PaginationResult struct {
+	Data        []interface{}
+	Total       int64
+	PerPage     int
+	CurrentPage int
+	LastPage    int
+	From        int
+	To          int
+	HasMore     bool
+	NextCursor  interface{}
+	PrevCursor  interface{}
+}
+
+// Cache interface for query caching
+type Cache interface {
+	Get(key string) (interface{}, bool)
+	Set(key string, value interface{}, ttl int) error
+	Delete(key string) error
+	Clear() error
+	Has(key string) bool
+}
+
+// QueryLog represents a query log entry
+type QueryLog struct {
+	SQL      string
+	Args     []interface{}
+	Duration time.Duration
+	Time     time.Time
+	Error    error
+}
+
+// QueryLogger interface for query logging
+type QueryLogger interface {
+	Log(log QueryLog)
+	GetLogs() []QueryLog
+	ClearLogs()
 }
