@@ -19,10 +19,21 @@ func NewWithMySQL() ORM {
 	return New(dialect.NewMySQLDialect())
 }
 
+// NewWithPostgres creates a new ORM instance with PostgreSQL dialect
+func NewWithPostgres() ORM {
+	return New(dialect.NewPostgresDialect())
+}
+
 // NewConnectionConfigFromEnv creates a connection config from environment variables
 // It automatically loads .env files and reads MySQL environment variables
 func NewConnectionConfigFromEnv() ConnectionConfig {
 	return dialect.NewConnectionConfigFromEnv()
+}
+
+// NewPostgresConnectionConfigFromEnv creates a connection config from environment variables
+// It automatically loads .env files and reads PostgreSQL environment variables
+func NewPostgresConnectionConfigFromEnv() ConnectionConfig {
+	return dialect.NewPostgresConnectionConfigFromEnv()
 }
 
 // ConnectionConfig represents database connection configuration
