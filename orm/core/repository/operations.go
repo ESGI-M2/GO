@@ -69,8 +69,8 @@ func (r *RepositoryImpl) Delete(entity interface{}) error {
 		return fmt.Errorf("primary key field %s not found", r.metadata.PrimaryKey)
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE %s = ?",
-		r.metadata.TableName, r.metadata.PrimaryKey)
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s = %s",
+		r.metadata.TableName, r.metadata.PrimaryKey, r.orm.GetDialect().GetPlaceholder(0))
 
 	_, err := r.orm.GetDialect().Exec(query, idField.Interface())
 	if err != nil {
@@ -90,7 +90,7 @@ func (r *RepositoryImpl) DeleteBy(criteria map[string]interface{}) error {
 	var args []interface{}
 
 	for field, value := range criteria {
-		conditions = append(conditions, fmt.Sprintf("%s = ?", field))
+		conditions = append(conditions, fmt.Sprintf("%s = %s", field, r.orm.GetDialect().GetPlaceholder(len(args))))
 		args = append(args, value)
 	}
 
@@ -105,6 +105,41 @@ func (r *RepositoryImpl) DeleteBy(criteria map[string]interface{}) error {
 	return nil
 }
 
+// findFieldByColumnName finds a struct field by its database column name
+func (r *RepositoryImpl) findFieldByColumnName(entityValue reflect.Value, columnName string) reflect.Value {
+	for i := 0; i < entityValue.NumField(); i++ {
+		field := entityValue.Type().Field(i)
+
+		// Check ORM tag first
+		if ormTag := field.Tag.Get("orm"); ormTag != "" {
+			// Parse ORM tag to find column name
+			parts := strings.Split(ormTag, ",")
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				if strings.HasPrefix(part, "column:") {
+					colName := strings.TrimPrefix(part, "column:")
+					if colName == columnName {
+						return entityValue.Field(i)
+					}
+				}
+			}
+		}
+
+		// Fall back to DB tag
+		if dbTag := field.Tag.Get("db"); dbTag != "" {
+			if dbTag == columnName {
+				return entityValue.Field(i)
+			}
+		}
+
+		// Fall back to field name (case-insensitive)
+		if strings.EqualFold(field.Name, columnName) {
+			return entityValue.Field(i)
+		}
+	}
+	return reflect.Value{}
+}
+
 // insert inserts a new entity
 func (r *RepositoryImpl) insert(entity interface{}) error {
 	entityValue := reflect.ValueOf(entity)
@@ -117,15 +152,8 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 	var placeholders []string
 
 	for _, column := range r.metadata.Columns {
-		// Find field by name (case-insensitive)
-		var field reflect.Value
-		for i := 0; i < entityValue.NumField(); i++ {
-			fieldType := entityValue.Type().Field(i)
-			if strings.EqualFold(fieldType.Name, column.Name) {
-				field = entityValue.Field(i)
-				break
-			}
-		}
+		// Find field by column name
+		field := r.findFieldByColumnName(entityValue, column.Name)
 		if !field.IsValid() {
 			continue
 		}
@@ -137,7 +165,7 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 
 		columns = append(columns, column.Name)
 		values = append(values, field.Interface())
-		placeholders = append(placeholders, "?")
+		placeholders = append(placeholders, r.orm.GetDialect().GetPlaceholder(len(placeholders)))
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
@@ -164,15 +192,8 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 	var values []interface{}
 
 	for _, column := range r.metadata.Columns {
-		// Find field by name (case-insensitive)
-		var field reflect.Value
-		for i := 0; i < entityValue.NumField(); i++ {
-			fieldType := entityValue.Type().Field(i)
-			if strings.EqualFold(fieldType.Name, column.Name) {
-				field = entityValue.Field(i)
-				break
-			}
-		}
+		// Find field by column name
+		field := r.findFieldByColumnName(entityValue, column.Name)
 		if !field.IsValid() || (field.Kind() == reflect.Ptr && field.IsNil()) {
 			continue // skip unset or nil fields
 		}
@@ -182,7 +203,7 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 			continue
 		}
 
-		sets = append(sets, fmt.Sprintf("%s = ?", column.Name))
+		sets = append(sets, fmt.Sprintf("%s = %s", column.Name, r.orm.GetDialect().GetPlaceholder(len(values))))
 		values = append(values, field.Interface())
 	}
 
@@ -201,10 +222,11 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 	}
 	values = append(values, idField.Interface())
 
-	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = ?",
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = %s",
 		r.metadata.TableName,
 		strings.Join(sets, ", "),
-		r.metadata.PrimaryKey)
+		r.metadata.PrimaryKey,
+		r.orm.GetDialect().GetPlaceholder(len(values)))
 
 	_, err := r.orm.GetDialect().Exec(query, values...)
 	if err != nil {
@@ -226,15 +248,8 @@ func (r *RepositoryImpl) mapToStruct(result map[string]interface{}) (interface{}
 
 	// Map database columns to struct fields
 	for _, column := range r.metadata.Columns {
-		// Find field by name (case-insensitive)
-		var field reflect.Value
-		for i := 0; i < entityValue.NumField(); i++ {
-			fieldType := entityValue.Type().Field(i)
-			if strings.EqualFold(fieldType.Name, column.Name) {
-				field = entityValue.Field(i)
-				break
-			}
-		}
+		// Find field by column name
+		field := r.findFieldByColumnName(entityValue, column.Name)
 		if !field.IsValid() {
 			continue
 		}

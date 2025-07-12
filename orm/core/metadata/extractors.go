@@ -323,6 +323,10 @@ func getSQLType(t reflect.Type) string {
 	case reflect.Bool:
 		return "BOOLEAN"
 	case reflect.Struct:
+		// Check for time.Time specifically
+		if t.String() == "time.Time" {
+			return "TIMESTAMP"
+		}
 		if t == reflect.TypeOf([]byte{}) {
 			return "BLOB"
 		}

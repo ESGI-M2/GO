@@ -137,7 +137,7 @@ func (o *ORMImpl) Transaction(fn func(interfaces.ORM) error) error {
 
 	// Create a transaction-scoped ORM
 	txORM := &ORMImpl{
-		Dialect:         &TransactionDialect{tx: tx},
+		Dialect:         &TransactionDialect{tx: tx, dialect: o.Dialect},
 		MetadataManager: o.MetadataManager,
 		Models:          o.Models,
 		Connected:       true,
@@ -169,7 +169,7 @@ func (o *ORMImpl) TransactionWithContext(ctx context.Context, fn func(interfaces
 
 	// Create a transaction-scoped ORM
 	txORM := &ORMImpl{
-		Dialect:         &TransactionDialect{tx: tx},
+		Dialect:         &TransactionDialect{tx: tx, dialect: o.Dialect},
 		MetadataManager: o.MetadataManager,
 		Models:          o.Models,
 		Connected:       true,
@@ -241,7 +241,8 @@ func (o *ORMImpl) WithConnectionPool(maxOpen, maxIdle int) interfaces.ORM { retu
 
 // TransactionDialect wraps a transaction to implement the Dialect interface
 type TransactionDialect struct {
-	tx interfaces.Transaction
+	tx      interfaces.Transaction
+	dialect interfaces.Dialect
 }
 
 // Connect is a no-op for transaction dialect
@@ -304,8 +305,11 @@ func (td *TransactionDialect) GetSQLType(goType reflect.Type) string {
 	return ""
 }
 
-// GetPlaceholder is not supported for transaction dialect
+// GetPlaceholder delegates to the underlying dialect
 func (td *TransactionDialect) GetPlaceholder(index int) string {
+	if td.dialect != nil {
+		return td.dialect.GetPlaceholder(index)
+	}
 	return "?"
 }
 

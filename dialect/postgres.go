@@ -237,16 +237,26 @@ func (p *PostgresDialect) GetJSONExtract() string {
 
 func (p *PostgresDialect) buildColumnDefinition(col interfaces.Column) string {
 	var parts []string
-	typeDef := col.Type
-	if col.Length > 0 && (strings.Contains(typeDef, "VARCHAR") || strings.Contains(typeDef, "CHAR")) {
-		typeDef = fmt.Sprintf("%s(%d)", typeDef, col.Length)
+	var typeDef string
+
+	// Handle auto-increment for PostgreSQL
+	if col.AutoIncrement {
+		// Use SERIAL or BIGSERIAL depending on the Go type
+		if col.Type == "BIGINT" {
+			typeDef = "BIGSERIAL"
+		} else {
+			typeDef = "SERIAL"
+		}
+	} else {
+		typeDef = col.Type
+		if col.Length > 0 && (strings.Contains(typeDef, "VARCHAR") || strings.Contains(typeDef, "CHAR")) {
+			typeDef = fmt.Sprintf("%s(%d)", typeDef, col.Length)
+		}
 	}
+
 	parts = append(parts, fmt.Sprintf("%s %s", col.Name, typeDef))
 	if !col.Nullable {
 		parts = append(parts, "NOT NULL")
-	}
-	if col.AutoIncrement {
-		parts = append(parts, "SERIAL")
 	}
 	if col.Default != nil {
 		defaultVal := fmt.Sprintf("%v", col.Default)

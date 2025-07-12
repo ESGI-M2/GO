@@ -292,10 +292,12 @@ func (qb *BuilderImpl) buildQuery() string {
 	// WHERE clause
 	if len(qb.where) > 0 {
 		var conditions []string
+		argIndex := 0
 		for _, condition := range qb.where {
 			if condition.Field != "" {
 				if condition.Operator != "" && condition.Value != nil {
-					conditions = append(conditions, fmt.Sprintf("%s %s ?", condition.Field, condition.Operator))
+					conditions = append(conditions, fmt.Sprintf("%s %s %s", condition.Field, condition.Operator, qb.Orm.GetDialect().GetPlaceholder(argIndex)))
+					argIndex++
 				} else if condition.Field != "" {
 					conditions = append(conditions, condition.Field)
 				}

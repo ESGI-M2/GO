@@ -133,7 +133,7 @@ func (qb *BuilderImpl) WhereIn(field string, values []interface{}) interfaces.Qu
 
 	placeholders := make([]string, len(values))
 	for i := range values {
-		placeholders[i] = "?"
+		placeholders[i] = qb.Orm.GetDialect().GetPlaceholder(i)
 		qb.args = append(qb.args, values[i])
 	}
 
@@ -160,7 +160,7 @@ func (qb *BuilderImpl) WhereNotIn(field string, values []interface{}) interfaces
 
 	placeholders := make([]string, len(values))
 	for i := range values {
-		placeholders[i] = "?"
+		placeholders[i] = qb.Orm.GetDialect().GetPlaceholder(i)
 		qb.args = append(qb.args, values[i])
 	}
 
@@ -190,7 +190,7 @@ func (qb *BuilderImpl) WhereOr(conditions ...interfaces.WhereCondition) interfac
 	for _, condition := range conditions {
 		if condition.Field != "" {
 			if condition.Operator != "" && condition.Value != nil {
-				orConditions = append(orConditions, fmt.Sprintf("%s %s ?", condition.Field, condition.Operator))
+				orConditions = append(orConditions, fmt.Sprintf("%s %s %s", condition.Field, condition.Operator, qb.Orm.GetDialect().GetPlaceholder(len(qb.args))))
 				qb.args = append(qb.args, condition.Value)
 			} else if condition.Field != "" {
 				orConditions = append(orConditions, condition.Field)
@@ -236,7 +236,7 @@ func (qb *BuilderImpl) WhereBetween(field string, min, max interface{}) interfac
 	}
 
 	qb.where = append(qb.where, interfaces.WhereCondition{
-		Field:    fmt.Sprintf("%s BETWEEN ? AND ?", field),
+		Field:    fmt.Sprintf("%s BETWEEN %s AND %s", field, qb.Orm.GetDialect().GetPlaceholder(len(qb.args)), qb.Orm.GetDialect().GetPlaceholder(len(qb.args)+1)),
 		Operator: "",
 		Value:    nil,
 		Logical:  "AND",
@@ -253,7 +253,7 @@ func (qb *BuilderImpl) WhereNotBetween(field string, min, max interface{}) inter
 	}
 
 	qb.where = append(qb.where, interfaces.WhereCondition{
-		Field:    fmt.Sprintf("%s NOT BETWEEN ? AND ?", field),
+		Field:    fmt.Sprintf("%s NOT BETWEEN %s AND %s", field, qb.Orm.GetDialect().GetPlaceholder(len(qb.args)), qb.Orm.GetDialect().GetPlaceholder(len(qb.args)+1)),
 		Operator: "",
 		Value:    nil,
 		Logical:  "AND",
