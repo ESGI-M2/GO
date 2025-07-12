@@ -295,7 +295,10 @@ func (qb *BuilderImpl) buildQuery() string {
 		argIndex := 0
 		for _, condition := range qb.where {
 			if condition.Field != "" {
-				if condition.Operator != "" && condition.Value != nil {
+				if condition.Raw {
+					// Raw WHERE conditions are used as-is
+					conditions = append(conditions, condition.Field)
+				} else if condition.Operator != "" && condition.Value != nil {
 					conditions = append(conditions, fmt.Sprintf("%s %s %s", condition.Field, condition.Operator, qb.Orm.GetDialect().GetPlaceholder(argIndex)))
 					argIndex++
 				} else if condition.Field != "" {

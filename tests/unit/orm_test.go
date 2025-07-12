@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ESGI-M2/GO/orm"
+	"github.com/ESGI-M2/GO/orm/builder"
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
-	"github.com/ESGI-M2/GO/orm/dialect"
+	"github.com/ESGI-M2/GO/orm/factory"
 )
 
 type TestModel struct {
@@ -14,40 +14,46 @@ type TestModel struct {
 	Name string `orm:"column:name"`
 }
 
-func setupORM() orm.ORM {
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
-	ormInstance.RegisterModel(&TestModel{})
-	return ormInstance
+func setupORM() *builder.SimpleORM {
+	return builder.NewSimpleORM().
+		WithDialect(factory.Mock).
+		RegisterModel(&TestModel{})
 }
 
 func TestORM_Connect_Close(t *testing.T) {
-	ormInstance := setupORM()
-	config := orm.ConnectionConfig{}
-	err := ormInstance.Connect(config)
+	orm := setupORM()
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
-	if !ormInstance.IsConnected() {
+	if !orm.IsConnected() {
 		t.Error("Should be connected after Connect")
 	}
-	err = ormInstance.Close()
+	err = orm.Close()
 	if err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
-	if ormInstance.IsConnected() {
+	if orm.IsConnected() {
 		t.Error("Should not be connected after Close")
 	}
 }
 
 func TestORM_RegisterModel_GetMetadata(t *testing.T) {
-	ormInstance := setupORM()
-	model := &TestModel{}
-	err := ormInstance.RegisterModel(model)
+	orm := setupORM()
+	err := orm.Connect()
 	if err != nil {
-		t.Errorf("RegisterModel failed: %v", err)
+		t.Errorf("Connect failed: %v", err)
 	}
-	meta, err := ormInstance.GetMetadata(model)
+	defer orm.Close()
+
+	// Get underlying ORM to access metadata
+	underlyingORM := orm.GetORM()
+	if underlyingORM == nil {
+		t.Fatal("Underlying ORM should not be nil")
+	}
+
+	model := &TestModel{}
+	meta, err := underlyingORM.GetMetadata(model)
 	if err != nil {
 		t.Errorf("GetMetadata failed: %v", err)
 	}
@@ -57,39 +63,39 @@ func TestORM_RegisterModel_GetMetadata(t *testing.T) {
 }
 
 func TestORM_Repository_Query_Raw(t *testing.T) {
-	ormInstance := setupORM()
+	orm := setupORM()
+	err := orm.Connect()
+	if err != nil {
+		t.Errorf("Connect failed: %v", err)
+	}
+	defer orm.Close()
+
 	model := &TestModel{}
-	repo := ormInstance.Repository(model)
+	repo := orm.Repository(model)
 	if repo == nil {
 		t.Error("Repository should not be nil")
 	}
-	query := ormInstance.Query(model)
+	query := orm.Query(model)
 	if query == nil {
 		t.Error("Query should not be nil")
 	}
-	raw := ormInstance.Raw("SELECT 1")
+	raw := orm.Raw("SELECT 1")
 	if raw == nil {
 		t.Error("Raw should not be nil")
 	}
 }
 
 func TestORM_Transaction(t *testing.T) {
-	ormInstance := setupORM()
+	orm := setupORM()
 
 	// Connect first
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
+	defer orm.Close()
 
-	err = ormInstance.Transaction(func(tx orm.ORM) error {
+	err = orm.Transaction(func(tx interfaces.ORM) error {
 		if tx == nil {
 			t.Error("Transaction ORM should not be nil")
 		}
@@ -101,23 +107,19 @@ func TestORM_Transaction(t *testing.T) {
 }
 
 func TestORM_TransactionWithContext(t *testing.T) {
-	ormInstance := setupORM()
+	orm := setupORM()
 	ctx := context.Background()
 
 	// Connect first
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
+	defer orm.Close()
 
-	err = ormInstance.TransactionWithContext(ctx, func(tx orm.ORM) error {
+	// Get underlying ORM for transaction
+	underlyingORM := orm.GetORM()
+	err = underlyingORM.TransactionWithContext(ctx, func(tx interfaces.ORM) error {
 		if tx == nil {
 			t.Error("TransactionWithContext ORM should not be nil")
 		}
@@ -129,27 +131,36 @@ func TestORM_TransactionWithContext(t *testing.T) {
 }
 
 func TestORM_CreateTable_DropTable_Migrate(t *testing.T) {
-	ormInstance := setupORM()
+	orm := setupORM()
+	err := orm.Connect()
+	if err != nil {
+		t.Errorf("Connect failed: %v", err)
+	}
+	defer orm.Close()
+
+	// Get underlying ORM for table operations
+	underlyingORM := orm.GetORM()
 	model := &TestModel{}
-	err := ormInstance.CreateTable(model)
+
+	err = underlyingORM.CreateTable(model)
 	if err != nil {
 		t.Errorf("CreateTable failed: %v", err)
 	}
-	err = ormInstance.DropTable(model)
+	err = underlyingORM.DropTable(model)
 	if err != nil {
 		t.Errorf("DropTable failed: %v", err)
 	}
-	err = ormInstance.Migrate()
+	err = underlyingORM.Migrate()
 	if err != nil {
 		t.Errorf("Migrate failed: %v", err)
 	}
 }
 
 func TestORM_ErrorCases(t *testing.T) {
-	// Simulate nil dialect
-	ormInstance := orm.New(nil)
-	err := ormInstance.Connect(orm.ConnectionConfig{})
+	// Test with invalid dialect
+	orm := builder.NewSimpleORM().WithDialect("invalid")
+	err := orm.Connect()
 	if err == nil {
-		t.Error("Expected error when dialect is nil")
+		t.Error("Expected error when dialect is invalid")
 	}
 }

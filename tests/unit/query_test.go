@@ -3,9 +3,9 @@ package unit
 import (
 	"testing"
 
-	"github.com/ESGI-M2/GO/orm"
+	"github.com/ESGI-M2/GO/orm/builder"
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
-	"github.com/ESGI-M2/GO/orm/dialect"
+	"github.com/ESGI-M2/GO/orm/factory"
 )
 
 type QueryTestModel struct {
@@ -14,22 +14,18 @@ type QueryTestModel struct {
 	Email string `orm:"column:email,unique"`
 }
 
-func setupQueryBuilder() orm.QueryBuilder {
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
-	ormInstance.RegisterModel(&QueryTestModel{})
+func setupQueryBuilder() interfaces.QueryBuilder {
+	orm := builder.NewSimpleORM().
+		WithDialect(factory.Mock).
+		RegisterModel(&QueryTestModel{})
 
 	// Connect first
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
+	err := orm.Connect()
+	if err != nil {
+		panic(err)
 	}
-	ormInstance.Connect(config)
 
-	return ormInstance.Query(&QueryTestModel{})
+	return orm.Query(&QueryTestModel{})
 }
 
 func TestQueryBuilder_Select(t *testing.T) {
@@ -202,20 +198,15 @@ func TestQueryBuilder_Exists(t *testing.T) {
 }
 
 func TestQueryBuilder_Raw(t *testing.T) {
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
+	orm := builder.NewSimpleORM().WithDialect(factory.Mock)
 
 	// Connect first
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
+	err := orm.Connect()
+	if err != nil {
+		t.Errorf("Connect failed: %v", err)
 	}
-	ormInstance.Connect(config)
 
-	raw := ormInstance.Raw("SELECT * FROM users WHERE id = ?", 1)
+	raw := orm.Raw("SELECT * FROM users WHERE id = ?", 1)
 	if raw == nil {
 		t.Error("Raw should return a query builder")
 	}
@@ -231,13 +222,12 @@ func TestQueryBuilder_Raw(t *testing.T) {
 
 func TestQueryBuilder_ErrorCases(t *testing.T) {
 	// Test with error query builder
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
+	orm := builder.NewSimpleORM().WithDialect(factory.Mock)
 	// Don't register model to trigger error case
-	qb := ormInstance.Query(&QueryTestModel{})
+	qb := orm.Query(&QueryTestModel{})
 
 	_, err := qb.Find()
 	if err == nil {
-		t.Error("Expected error when metadata is not available")
+		t.Error("Expected error when ORM is not connected")
 	}
 }

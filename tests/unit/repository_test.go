@@ -3,9 +3,9 @@ package unit
 import (
 	"testing"
 
-	"github.com/ESGI-M2/GO/orm"
+	"github.com/ESGI-M2/GO/orm/builder"
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
-	"github.com/ESGI-M2/GO/orm/dialect"
+	"github.com/ESGI-M2/GO/orm/factory"
 )
 
 type RepoTestUser struct {
@@ -14,22 +14,18 @@ type RepoTestUser struct {
 	Email string `orm:"column:email,unique"`
 }
 
-func setupRepository() orm.Repository {
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
-	ormInstance.RegisterModel(&RepoTestUser{})
+func setupRepository() interfaces.Repository {
+	orm := builder.NewSimpleORM().
+		WithDialect(factory.Mock).
+		RegisterModel(&RepoTestUser{})
 
-	// Connect first
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
+	// Connect
+	err := orm.Connect()
+	if err != nil {
+		panic(err)
 	}
-	ormInstance.Connect(config)
 
-	return ormInstance.Repository(&RepoTestUser{})
+	return orm.Repository(&RepoTestUser{})
 }
 
 func TestRepository_Find(t *testing.T) {
@@ -98,47 +94,34 @@ func TestRepository_Count(t *testing.T) {
 
 func TestRepository_Exists(t *testing.T) {
 	repo := setupRepository()
-	user := &RepoTestUser{Id: 1}
-	_, err := repo.Exists(user.Id)
+	_, err := repo.Exists(1)
 	if err != nil {
 		t.Errorf("Exists failed: %v", err)
 	}
-	// exists can be true or false depending on mock implementation
+	// exists can be true or false
 }
 
 func TestRepository_Save_Insert(t *testing.T) {
 	repo := setupRepository()
-	user := &RepoTestUser{
-		Id:    1,
-		Name:  "Test User",
-		Email: "test@example.com",
-	}
+	user := &RepoTestUser{Name: "John Doe", Email: "john@example.com"}
 	err := repo.Save(user)
 	if err != nil {
-		t.Errorf("Save (insert) failed: %v", err)
+		t.Errorf("Save failed: %v", err)
 	}
 }
 
 func TestRepository_Save_Update(t *testing.T) {
 	repo := setupRepository()
-	user := &RepoTestUser{
-		Id:    1,
-		Name:  "Updated User",
-		Email: "updated@example.com",
-	}
+	user := &RepoTestUser{Id: 1, Name: "John Doe Updated", Email: "john.updated@example.com"}
 	err := repo.Save(user)
 	if err != nil {
-		t.Errorf("Save (update) failed: %v", err)
+		t.Errorf("Save failed: %v", err)
 	}
 }
 
 func TestRepository_Update(t *testing.T) {
 	repo := setupRepository()
-	user := &RepoTestUser{
-		Id:    1,
-		Name:  "Updated User",
-		Email: "updated@example.com",
-	}
+	user := &RepoTestUser{Id: 1, Name: "John Doe Updated", Email: "john.updated@example.com"}
 	err := repo.Update(user)
 	if err != nil {
 		t.Errorf("Update failed: %v", err)
@@ -147,9 +130,7 @@ func TestRepository_Update(t *testing.T) {
 
 func TestRepository_Delete(t *testing.T) {
 	repo := setupRepository()
-	user := &RepoTestUser{
-		Id: 1,
-	}
+	user := &RepoTestUser{Id: 1}
 	err := repo.Delete(user)
 	if err != nil {
 		t.Errorf("Delete failed: %v", err)
@@ -159,7 +140,7 @@ func TestRepository_Delete(t *testing.T) {
 func TestRepository_DeleteBy(t *testing.T) {
 	repo := setupRepository()
 	criteria := map[string]interface{}{
-		"email": "test@example.com",
+		"name": "test",
 	}
 	err := repo.DeleteBy(criteria)
 	if err != nil {
@@ -168,14 +149,12 @@ func TestRepository_DeleteBy(t *testing.T) {
 }
 
 func TestRepository_ErrorCases(t *testing.T) {
-	// Test with nil ORM (should return error repository)
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
-	// Don't register model to trigger error case
-	repo := ormInstance.Repository(&RepoTestUser{})
+	// Test with no registered model
+	orm := builder.NewSimpleORM().WithDialect(factory.Mock)
+	repo := orm.Repository(&RepoTestUser{})
 
 	_, err := repo.Find(1)
 	if err == nil {
-		t.Error("Expected error when metadata is not available")
+		t.Error("Expected error when ORM is not connected")
 	}
 }

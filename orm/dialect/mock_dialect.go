@@ -5,10 +5,26 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
+
+// MockData represents a simple in-memory storage for testing
+type MockData struct {
+	tables map[string][]map[string]interface{}
+	nextID map[string]int64
+}
+
+// MockDialect implements the Dialect interface for testing with actual data storage
+type MockDialect struct {
+	connected  bool
+	execError  error
+	queryError error
+	beginError error
+	data       *MockData
+}
 
 // NewMockDialect creates a new mock dialect for testing
 func NewMockDialect() *MockDialect {
@@ -17,27 +33,32 @@ func NewMockDialect() *MockDialect {
 		execError:  nil,
 		queryError: nil,
 		beginError: nil,
+		data: &MockData{
+			tables: make(map[string][]map[string]interface{}),
+			nextID: make(map[string]int64),
+		},
 	}
 }
 
-// MockDialect implements the Dialect interface for testing
-type MockDialect struct {
-	connected  bool
-	execError  error
-	queryError error
-	beginError error
-}
-
+// Connect simulates a database connection
 func (m *MockDialect) Connect(config interfaces.ConnectionConfig) error {
+	if m.connected {
+		return fmt.Errorf("already connected")
+	}
 	m.connected = true
 	return nil
 }
 
+// Close simulates closing the database connection
 func (m *MockDialect) Close() error {
+	if !m.connected {
+		return fmt.Errorf("not connected")
+	}
 	m.connected = false
 	return nil
 }
 
+// Ping simulates pinging the database connection
 func (m *MockDialect) Ping() error {
 	if !m.connected {
 		return fmt.Errorf("not connected")
@@ -45,6 +66,162 @@ func (m *MockDialect) Ping() error {
 	return nil
 }
 
+// IsConnected returns whether the dialect is connected
+func (m *MockDialect) IsConnected() bool {
+	return m.connected
+}
+
+// GetTypeName returns the type name for the dialect
+func (m *MockDialect) GetTypeName() string {
+	return "mock"
+}
+
+// GetColumnType returns the column type for the given Go type
+func (m *MockDialect) GetColumnType(goType reflect.Type) string {
+	switch goType.Kind() {
+	case reflect.String:
+		return "VARCHAR(255)"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "INT"
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "UINT"
+	case reflect.Float32, reflect.Float64:
+		return "FLOAT"
+	case reflect.Bool:
+		return "BOOLEAN"
+	case reflect.Struct:
+		if goType == reflect.TypeOf(time.Time{}) {
+			return "DATETIME"
+		}
+		return "TEXT"
+	default:
+		return "TEXT"
+	}
+}
+
+// CreateTable simulates creating a table
+func (m *MockDialect) CreateTable(tableName string, columns []interfaces.Column) error {
+	if !m.connected {
+		return fmt.Errorf("not connected")
+	}
+
+	// Initialize empty table
+	if m.data.tables[tableName] == nil {
+		m.data.tables[tableName] = []map[string]interface{}{}
+		m.data.nextID[tableName] = 1
+	}
+	return nil
+}
+
+// DropTable simulates dropping a table
+func (m *MockDialect) DropTable(tableName string) error {
+	if !m.connected {
+		return fmt.Errorf("not connected")
+	}
+
+	delete(m.data.tables, tableName)
+	delete(m.data.nextID, tableName)
+	return nil
+}
+
+// TableExists checks if a table exists
+func (m *MockDialect) TableExists(tableName string) (bool, error) {
+	if !m.connected {
+		return false, fmt.Errorf("not connected")
+	}
+
+	_, exists := m.data.tables[tableName]
+	return exists, nil
+}
+
+// GetSQLType returns the SQL type for a given Go type
+func (m *MockDialect) GetSQLType(goType reflect.Type) string {
+	return m.GetColumnType(goType)
+}
+
+// GetPlaceholder returns the placeholder for a given index
+func (m *MockDialect) GetPlaceholder(index int) string {
+	return "?"
+}
+
+// FullTextSearch returns a mock full-text search query
+func (m *MockDialect) FullTextSearch(field, query string) string {
+	return fmt.Sprintf("MOCK_FULLTEXT_SEARCH(%s, '%s')", field, query)
+}
+
+// GetRandomFunction returns a mock random function
+func (m *MockDialect) GetRandomFunction() string {
+	return "MOCK_RANDOM()"
+}
+
+// GetDateFunction returns a mock date function
+func (m *MockDialect) GetDateFunction() string {
+	return "MOCK_DATE()"
+}
+
+// GetJSONExtract returns a mock JSON extract function
+func (m *MockDialect) GetJSONExtract() string {
+	return "MOCK_JSON_EXTRACT"
+}
+
+// parseInsertQuery parses a basic INSERT query to extract table name and values
+func (m *MockDialect) parseInsertQuery(query string, args []interface{}) (string, map[string]interface{}, error) {
+	queryUpper := strings.ToUpper(strings.TrimSpace(query))
+
+	// Extract table name - look for "INSERT INTO table_name"
+	parts := strings.Fields(queryUpper)
+	var tableName string
+	for i, part := range parts {
+		if part == "INTO" && i+1 < len(parts) {
+			tableName = strings.ToLower(parts[i+1])
+			break
+		}
+	}
+
+	if tableName == "" {
+		return "", nil, fmt.Errorf("could not parse table name from query")
+	}
+
+	// Create a simple record with the provided args
+	record := make(map[string]interface{})
+
+	// For simplicity, map args to common field names
+	fieldNames := []string{"name", "age", "email", "title", "content", "user_id", "deleted_at"}
+
+	// Auto-generate ID if not provided
+	var autoGeneratedID int64
+	if !strings.Contains(strings.ToLower(query), "id") {
+		m.data.nextID[tableName]++
+		autoGeneratedID = m.data.nextID[tableName]
+		record["id"] = autoGeneratedID
+	}
+
+	// Map args to field names (skip ID field to avoid overwriting auto-generated ID)
+	for i, arg := range args {
+		if i < len(fieldNames) {
+			record[fieldNames[i]] = arg
+		}
+	}
+
+	return tableName, record, nil
+}
+
+// parseSelectQuery parses a basic SELECT query to extract table name
+func (m *MockDialect) parseSelectQuery(query string) string {
+	queryUpper := strings.ToUpper(strings.TrimSpace(query))
+
+	// Look for "FROM table_name"
+	parts := strings.Fields(queryUpper)
+	for i, part := range parts {
+		if part == "FROM" && i+1 < len(parts) {
+			return strings.ToLower(parts[i+1])
+		}
+	}
+
+	return ""
+}
+
+// Exec executes a query that doesn't return rows
 func (m *MockDialect) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if !m.connected {
 		return nil, fmt.Errorf("not connected")
@@ -53,16 +230,65 @@ func (m *MockDialect) Exec(query string, args ...interface{}) (sql.Result, error
 		return nil, m.execError
 	}
 
-	// Check if it's a SELECT query
-	isSelect := len(query) > 6 && query[:6] == "SELECT"
+	queryUpper := strings.ToUpper(strings.TrimSpace(query))
 
-	return &MockSQLResult{
-		lastInsertID: 1,
-		rowsAffected: 1,
-		isSelect:     isSelect,
-	}, nil
+	// Handle INSERT queries
+	if strings.HasPrefix(queryUpper, "INSERT") {
+		tableName, record, err := m.parseInsertQuery(query, args)
+		if err != nil {
+			return &MockResult{lastInsertID: 0, rowsAffected: 0}, nil
+		}
+
+		// Initialize table if it doesn't exist
+		if m.data.tables[tableName] == nil {
+			m.data.tables[tableName] = make([]map[string]interface{}, 0)
+		}
+
+		// Add record to table
+		m.data.tables[tableName] = append(m.data.tables[tableName], record)
+
+		// Get the last insert ID safely
+		var lastInsertID int64
+		if idVal, exists := record["id"]; exists {
+			if id, ok := idVal.(int64); ok {
+				lastInsertID = id
+			}
+		}
+
+		return &MockResult{
+			lastInsertID: lastInsertID,
+			rowsAffected: 1,
+		}, nil
+	}
+
+	// Handle UPDATE queries
+	if strings.HasPrefix(queryUpper, "UPDATE") {
+		// Simple update implementation
+		return &MockResult{lastInsertID: 0, rowsAffected: 1}, nil
+	}
+
+	// Handle DELETE queries
+	if strings.HasPrefix(queryUpper, "DELETE") {
+		// Simple delete implementation
+		return &MockResult{lastInsertID: 0, rowsAffected: 1}, nil
+	}
+
+	// Handle CREATE TABLE queries
+	if strings.Contains(queryUpper, "CREATE TABLE") {
+		// Just return success for table creation
+		return &MockResult{lastInsertID: 0, rowsAffected: 0}, nil
+	}
+
+	// Handle DROP TABLE queries
+	if strings.Contains(queryUpper, "DROP TABLE") {
+		// Just return success for table dropping
+		return &MockResult{lastInsertID: 0, rowsAffected: 0}, nil
+	}
+
+	return &MockResult{lastInsertID: 0, rowsAffected: 0}, nil
 }
 
+// Query executes a query that returns rows
 func (m *MockDialect) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if !m.connected {
 		return nil, fmt.Errorf("not connected")
@@ -70,18 +296,36 @@ func (m *MockDialect) Query(query string, args ...interface{}) (*sql.Rows, error
 	if m.queryError != nil {
 		return nil, m.queryError
 	}
-	// Return nil to indicate no rows, which is safer than empty rows
+
+	queryUpper := strings.ToUpper(strings.TrimSpace(query))
+
+	// Handle SELECT queries
+	if strings.HasPrefix(queryUpper, "SELECT") {
+		tableName := m.parseSelectQuery(query)
+		if tableName != "" {
+			if rows, exists := m.data.tables[tableName]; exists && len(rows) > 0 {
+				// Return some mock data
+				// Note: We can't actually return *sql.Rows from our mock data
+				// This is a limitation of mocking the sql package
+				return nil, nil // This will be handled by the query execution layer
+			}
+		}
+	}
+
+	// Return nil for other queries (this is the limitation of mock testing)
 	return nil, nil
 }
 
+// QueryRow executes a query that returns a single row
 func (m *MockDialect) QueryRow(query string, args ...interface{}) *sql.Row {
 	if !m.connected {
 		return nil
 	}
-	// Return nil to avoid panics with mock rows
+	// Return nil since we can't properly mock sql.Row
 	return nil
 }
 
+// Begin starts a transaction
 func (m *MockDialect) Begin() (interfaces.Transaction, error) {
 	if !m.connected {
 		return nil, fmt.Errorf("not connected")
@@ -89,9 +333,10 @@ func (m *MockDialect) Begin() (interfaces.Transaction, error) {
 	if m.beginError != nil {
 		return nil, m.beginError
 	}
-	return &MockTransaction{}, nil
+	return &MockTransaction{dialect: m}, nil
 }
 
+// BeginTx starts a transaction with context
 func (m *MockDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (interfaces.Transaction, error) {
 	if !m.connected {
 		return nil, fmt.Errorf("not connected")
@@ -99,117 +344,64 @@ func (m *MockDialect) BeginTx(ctx context.Context, opts *sql.TxOptions) (interfa
 	if m.beginError != nil {
 		return nil, m.beginError
 	}
-	return &MockTransaction{}, nil
+	return &MockTransaction{dialect: m}, nil
 }
 
-func (m *MockDialect) CreateTable(tableName string, columns []interfaces.Column) error {
-	return nil
+// GetMockData returns the mock data for testing
+func (m *MockDialect) GetMockData() *MockData {
+	return m.data
 }
 
-func (m *MockDialect) DropTable(tableName string) error {
-	return nil
-}
-
-func (m *MockDialect) TableExists(tableName string) (bool, error) {
-	return false, nil
-}
-
-func (m *MockDialect) GetSQLType(goType reflect.Type) string {
-	switch goType.Kind() {
-	case reflect.String:
-		return "VARCHAR(255)"
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return "INT"
-	case reflect.Bool:
-		return "BOOLEAN"
-	case reflect.Float32, reflect.Float64:
-		return "DOUBLE"
-	default:
-		if goType == reflect.TypeOf(time.Time{}) {
-			return "DATETIME"
-		}
-		return "TEXT"
+// ResetMockData resets the mock data
+func (m *MockDialect) ResetMockData() {
+	m.data = &MockData{
+		tables: make(map[string][]map[string]interface{}),
+		nextID: make(map[string]int64),
 	}
 }
 
-func (m *MockDialect) GetPlaceholder(index int) string {
-	return "?"
+// SetMockError sets mock errors for testing error cases
+func (m *MockDialect) SetMockError(execError, queryError, beginError error) {
+	m.execError = execError
+	m.queryError = queryError
+	m.beginError = beginError
 }
 
-func (m *MockDialect) FullTextSearch(field, query string) string {
-	return "MOCK_FULLTEXT_SEARCH(" + field + ", '" + query + "')"
-}
-
-func (m *MockDialect) GetDateFunction() string {
-	return "MOCK_DATE()"
-}
-
-func (m *MockDialect) GetJSONExtract() string {
-	return "MOCK_JSON_EXTRACT"
-}
-
-func (m *MockDialect) GetRandomFunction() string {
-	return "MOCK_RANDOM()"
-}
-
-// MockSQLResult for testing
-type MockSQLResult struct {
+// MockResult implements sql.Result for testing
+type MockResult struct {
 	lastInsertID int64
 	rowsAffected int64
-	isSelect     bool
 }
 
-func (m *MockSQLResult) LastInsertId() (int64, error) {
-	if m.isSelect {
-		return 0, fmt.Errorf("LastInsertId not supported for SELECT")
-	}
+func (m *MockResult) LastInsertId() (int64, error) {
 	return m.lastInsertID, nil
 }
 
-func (m *MockSQLResult) RowsAffected() (int64, error) {
-	if m.isSelect {
-		return 0, nil
-	}
+func (m *MockResult) RowsAffected() (int64, error) {
 	return m.rowsAffected, nil
 }
 
-// MockTransaction for testing
+// MockTransaction implements interfaces.Transaction for testing
 type MockTransaction struct {
-	committed  bool
-	rolledBack bool
+	dialect *MockDialect
+}
+
+func (m *MockTransaction) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return m.dialect.Exec(query, args...)
+}
+
+func (m *MockTransaction) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return m.dialect.Query(query, args...)
+}
+
+func (m *MockTransaction) QueryRow(query string, args ...interface{}) *sql.Row {
+	return m.dialect.QueryRow(query, args...)
 }
 
 func (m *MockTransaction) Commit() error {
-	if m.rolledBack {
-		return fmt.Errorf("already rolled back")
-	}
-	if m.committed {
-		return fmt.Errorf("already committed")
-	}
-	m.committed = true
 	return nil
 }
 
 func (m *MockTransaction) Rollback() error {
-	if m.committed {
-		return fmt.Errorf("already committed")
-	}
-	if m.rolledBack {
-		return fmt.Errorf("already rolled back")
-	}
-	m.rolledBack = true
 	return nil
-}
-
-func (m *MockTransaction) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return &MockSQLResult{lastInsertID: 1, rowsAffected: 1}, nil
-}
-
-func (m *MockTransaction) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return &sql.Rows{}, nil
-}
-
-func (m *MockTransaction) QueryRow(query string, args ...interface{}) *sql.Row {
-	// Return a dummy non-nil *sql.Row
-	return &sql.Row{}
 }

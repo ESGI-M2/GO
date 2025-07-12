@@ -486,9 +486,12 @@ func (r *RepositoryImpl) Exists(id interface{}) (bool, error) {
 	return r.orm.Query(r.model).Where("id", "=", id).Exists()
 }
 
-// Increment increments a field value
+// Increment increments a field value for all records
 func (r *RepositoryImpl) Increment(field string, amount interface{}) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = %s + ?", r.metadata.TableName, field, field)
+	if r.metadata == nil {
+		return fmt.Errorf("metadata not available")
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = %s + %s WHERE 1=1", r.metadata.TableName, field, field, r.orm.GetDialect().GetPlaceholder(0))
 	_, err := r.orm.GetDialect().Exec(query, amount)
 	if err != nil {
 		return fmt.Errorf("failed to increment field: %w", err)
@@ -496,9 +499,12 @@ func (r *RepositoryImpl) Increment(field string, amount interface{}) error {
 	return nil
 }
 
-// Decrement decrements a field value
+// Decrement decrements a field value for all records
 func (r *RepositoryImpl) Decrement(field string, amount interface{}) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = %s - ?", r.metadata.TableName, field, field)
+	if r.metadata == nil {
+		return fmt.Errorf("metadata not available")
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = %s - %s WHERE 1=1", r.metadata.TableName, field, field, r.orm.GetDialect().GetPlaceholder(0))
 	_, err := r.orm.GetDialect().Exec(query, amount)
 	if err != nil {
 		return fmt.Errorf("failed to decrement field: %w", err)

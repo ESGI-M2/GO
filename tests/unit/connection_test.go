@@ -3,178 +3,155 @@ package unit
 import (
 	"testing"
 
-	"github.com/ESGI-M2/GO/orm"
-	"github.com/ESGI-M2/GO/orm/core/interfaces"
-	"github.com/ESGI-M2/GO/orm/dialect"
+	"github.com/ESGI-M2/GO/orm/builder"
+	"github.com/ESGI-M2/GO/orm/factory"
 )
 
-func setupConnectionTest() orm.ORM {
-	mockDialect := &dialect.MockDialect{}
-	return orm.New(mockDialect)
+func setupConnectionTest() *builder.SimpleORM {
+	return builder.NewSimpleORM().WithDialect(factory.Mock)
 }
 
 func TestConnection_Connect(t *testing.T) {
-	ormInstance := setupConnectionTest()
+	orm := setupConnectionTest()
 
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
+	// Use the new approach with quick config
+	orm.WithQuickConfig("localhost", "test", "root", "password")
 
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
 
 	// Test that connection is established
-	if !ormInstance.IsConnected() {
+	if !orm.IsConnected() {
 		t.Error("ORM should be connected after Connect()")
 	}
+
+	// Clean up
+	orm.Close()
 }
 
 func TestConnection_Connect_AlreadyConnected(t *testing.T) {
-	ormInstance := setupConnectionTest()
+	orm := setupConnectionTest()
 
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
+	// Use the new approach with quick config
+	orm.WithQuickConfig("localhost", "test", "root", "password")
 
 	// First connection
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("First Connect failed: %v", err)
 	}
 
 	// Second connection should not fail
-	err = ormInstance.Connect(config)
+	err = orm.Connect()
 	if err != nil {
 		t.Errorf("Second Connect failed: %v", err)
 	}
+
+	// Clean up
+	orm.Close()
 }
 
 func TestConnection_Close(t *testing.T) {
-	ormInstance := setupConnectionTest()
+	orm := setupConnectionTest()
 
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
+	// Use the new approach with quick config
+	orm.WithQuickConfig("localhost", "test", "root", "password")
 
 	// Connect first
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
 
 	// Then close
-	err = ormInstance.Close()
+	err = orm.Close()
 	if err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 
 	// Test that connection is closed
-	if ormInstance.IsConnected() {
+	if orm.IsConnected() {
 		t.Error("ORM should not be connected after Close()")
 	}
 }
 
 func TestConnection_Close_NotConnected(t *testing.T) {
-	ormInstance := setupConnectionTest()
+	orm := setupConnectionTest()
 
 	// Close without connecting first
-	err := ormInstance.Close()
+	err := orm.Close()
 	if err != nil {
 		t.Errorf("Close when not connected failed: %v", err)
 	}
 }
 
 func TestConnection_IsConnected(t *testing.T) {
-	ormInstance := setupConnectionTest()
+	orm := setupConnectionTest()
 
 	// Initially not connected
-	if ormInstance.IsConnected() {
+	if orm.IsConnected() {
 		t.Error("ORM should not be connected initially")
 	}
 
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
+	// Use the new approach with quick config
+	orm.WithQuickConfig("localhost", "test", "root", "password")
 
 	// Connect
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err != nil {
 		t.Errorf("Connect failed: %v", err)
 	}
 
 	// Should be connected
-	if !ormInstance.IsConnected() {
+	if !orm.IsConnected() {
 		t.Error("ORM should be connected after Connect()")
 	}
 
 	// Close
-	err = ormInstance.Close()
+	err = orm.Close()
 	if err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 
 	// Should not be connected
-	if ormInstance.IsConnected() {
+	if orm.IsConnected() {
 		t.Error("ORM should not be connected after Close()")
 	}
 }
 
 func TestConnection_GetDialect(t *testing.T) {
-	mockDialect := &dialect.MockDialect{}
-	ormInstance := orm.New(mockDialect)
+	orm := setupConnectionTest()
 
-	dialect := ormInstance.GetDialect()
-	if dialect == nil {
-		t.Error("GetDialect should return the dialect")
+	// Connect first
+	orm.WithQuickConfig("localhost", "test", "root", "password")
+	err := orm.Connect()
+	if err != nil {
+		t.Errorf("Connect failed: %v", err)
 	}
 
-	if dialect != mockDialect {
-		t.Error("GetDialect should return the same dialect instance")
+	// Get dialect type
+	dialectType := orm.GetDialectType()
+	if dialectType != factory.Mock {
+		t.Errorf("Expected dialect type Mock, got %v", dialectType)
 	}
+
+	// Clean up
+	orm.Close()
 }
 
 func TestConnection_ErrorCases(t *testing.T) {
-	// Test with nil dialect
-	ormInstance := orm.New(nil)
+	// Test with invalid dialect
+	orm := builder.NewSimpleORM().WithDialect("invalid")
 
-	config := interfaces.ConnectionConfig{
-		Host:     "localhost",
-		Port:     3306,
-		Database: "test",
-		Username: "root",
-		Password: "password",
-	}
-
-	err := ormInstance.Connect(config)
+	err := orm.Connect()
 	if err == nil {
-		t.Error("Connect should fail with nil dialect")
+		t.Error("Connect should fail with invalid dialect")
 	}
 
-	// Close should not fail when not connected
-	err = ormInstance.Close()
-	if err != nil {
-		t.Errorf("Close should not fail when not connected: %v", err)
-	}
-
-	if ormInstance.IsConnected() {
-		t.Error("Should not be connected with nil dialect")
+	// Should not be connected
+	if orm.IsConnected() {
+		t.Error("Should not be connected with invalid dialect")
 	}
 }
