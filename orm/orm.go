@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"github.com/ESGI-M2/GO/dialect"
 	"github.com/ESGI-M2/GO/orm/core/connection"
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
 )
@@ -11,6 +12,17 @@ type ORM = interfaces.ORM
 // New creates a new ORM instance
 func New(dialect interfaces.Dialect) ORM {
 	return connection.NewORM(dialect)
+}
+
+// NewWithMySQL creates a new ORM instance with MySQL dialect
+func NewWithMySQL() ORM {
+	return New(dialect.NewMySQLDialect())
+}
+
+// NewConnectionConfigFromEnv creates a connection config from environment variables
+// It automatically loads .env files and reads MySQL environment variables
+func NewConnectionConfigFromEnv() ConnectionConfig {
+	return dialect.NewConnectionConfigFromEnv()
 }
 
 // ConnectionConfig represents database connection configuration

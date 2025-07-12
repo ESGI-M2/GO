@@ -12,6 +12,8 @@ import (
 
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
 
+	"strconv"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 )
@@ -26,12 +28,46 @@ func NewMySQLDialect() *MySQLDialect {
 	return &MySQLDialect{}
 }
 
+// loadEnvFile attempts to load environment variables from .env files
+func loadEnvFile() {
+	// Try multiple common locations for the .env file
+	envFiles := []string{".env", "../.env", "../../.env", ".env.local"}
+	for _, envFile := range envFiles {
+		if err := godotenv.Load(envFile); err == nil {
+			break
+		}
+	}
+}
+
+// NewConnectionConfigFromEnv creates a connection config from environment variables
+// It automatically loads .env files and reads MySQL environment variables
+func NewConnectionConfigFromEnv() interfaces.ConnectionConfig {
+	// Load environment variables from .env file if it exists
+	loadEnvFile()
+
+	// Parse port from environment
+	port := 3306 // default
+	if portStr := os.Getenv("MYSQL_PORT"); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			port = p
+		}
+	}
+
+	return interfaces.ConnectionConfig{
+		Host:     os.Getenv("MYSQL_HOST"),
+		Port:     port,
+		Database: os.Getenv("MYSQL_DATABASE"),
+		Username: os.Getenv("MYSQL_USER"),
+		Password: os.Getenv("MYSQL_PASSWORD"),
+	}
+}
+
 // Connect establishes a connection to MySQL database
 func (m *MySQLDialect) Connect(config interfaces.ConnectionConfig) error {
 	var err error
 
-	// Load environment variables if .env file exists
-	godotenv.Load("../.env")
+	// Load environment variables from .env file if it exists
+	loadEnvFile()
 
 	// Use config values or fallback to environment variables
 	user := config.Username
@@ -328,6 +364,9 @@ var DB *sql.DB
 
 // InitMySQL initializes the legacy global DB variable
 func InitMySQL() {
+	// Load environment variables from .env file if it exists
+	loadEnvFile()
+
 	dialect := NewMySQLDialect()
 	config := interfaces.ConnectionConfig{
 		Host:     os.Getenv("MYSQL_HOST"),

@@ -1,8 +1,9 @@
 package repository
 
 import (
-	data "github.com/ESGI-M2/GO/memory"
 	"reflect"
+
+	data "github.com/ESGI-M2/GO/memory"
 )
 
 func FindAll(table string) []map[string]interface{} {
