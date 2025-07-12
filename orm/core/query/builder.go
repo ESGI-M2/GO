@@ -217,8 +217,16 @@ func (qb *BuilderImpl) WhereRaw(condition string, args ...interface{}) interface
 		return qb
 	}
 
+	// Convert ? placeholders to dialect-specific placeholders
+	convertedCondition := condition
+	argIndex := len(qb.args)
+	for i := 0; i < len(args); i++ {
+		placeholder := qb.Orm.GetDialect().GetPlaceholder(argIndex + i)
+		convertedCondition = strings.Replace(convertedCondition, "?", placeholder, 1)
+	}
+
 	qb.where = append(qb.where, interfaces.WhereCondition{
-		Field:    condition,
+		Field:    convertedCondition,
 		Operator: "",
 		Value:    nil,
 		Logical:  "AND",
