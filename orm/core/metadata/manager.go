@@ -64,6 +64,12 @@ func (mm *Manager) ExtractMetadata(model interface{}) (*interfaces.ModelMetadata
 			if column.AutoIncrement {
 				metadata.AutoIncrement = column.Name
 			}
+
+			// Detect soft delete column
+			if column.SoftDelete {
+				metadata.SoftDeletes = true
+				metadata.DeletedAt = column.Name
+			}
 		}
 	}
 

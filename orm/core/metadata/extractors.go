@@ -38,6 +38,7 @@ type ORMTag struct {
 	Nullable     bool
 	Relation     string
 	RelationType string
+	SoftDelete   bool
 }
 
 // extractColumn extracts column information from a struct field
@@ -63,6 +64,11 @@ func (mm *Manager) extractColumn(field reflect.StructField) (*interfaces.Column,
 	if ormTagStr != "" {
 		ormTag := parseORMTag(ormTagStr)
 
+		// If this tag defines a relation only, skip column generation
+		if ormTag.Relation != "" {
+			return nil, nil
+		}
+
 		// Set column name
 		if ormTag.Column != "" {
 			column.Name = ormTag.Column
@@ -76,6 +82,12 @@ func (mm *Manager) extractColumn(field reflect.StructField) (*interfaces.Column,
 		column.Unique = ormTag.Unique
 		column.Index = ormTag.Index
 		column.Nullable = ormTag.Nullable
+
+		// Set soft delete flag
+		column.SoftDelete = ormTag.SoftDelete
+		if column.SoftDelete {
+			column.Nullable = true // soft delete columns must allow NULL
+		}
 
 		// Set length
 		if ormTag.Length > 0 {
@@ -283,6 +295,8 @@ func parseORMTag(tag string) *ORMTag {
 				ormTag.Index = true
 			case "nullable":
 				ormTag.Nullable = true
+			case "soft":
+				ormTag.SoftDelete = true
 			}
 		}
 	}

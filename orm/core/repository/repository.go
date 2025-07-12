@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
@@ -578,33 +579,58 @@ func (r *RepositoryImpl) setTimestamps(entity interface{}, isCreate bool) {
 
 // setDeletedAt sets the deleted_at timestamp
 func (r *RepositoryImpl) setDeletedAt(entity interface{}) {
-	if r.metadata.DeletedAt == "" {
+	if !r.metadata.SoftDeletes {
 		return
 	}
 
-	entityValue := reflect.ValueOf(entity)
-	if entityValue.Kind() == reflect.Ptr {
-		entityValue = entityValue.Elem()
+	entityVal := reflect.ValueOf(entity)
+	if entityVal.Kind() == reflect.Ptr {
+		entityVal = entityVal.Elem()
 	}
 
-	if field := entityValue.FieldByName(r.metadata.DeletedAt); field.IsValid() && field.CanSet() {
-		field.Set(reflect.ValueOf(time.Now()))
+	entityType := entityVal.Type()
+
+	for i := 0; i < entityType.NumField(); i++ {
+		field := entityType.Field(i)
+		tag := field.Tag.Get("orm")
+		if strings.Contains(tag, "soft") {
+			fieldVal := entityVal.Field(i)
+			if fieldVal.IsValid() && fieldVal.CanSet() {
+				now := time.Now()
+				if fieldVal.Kind() == reflect.Ptr {
+					fieldVal.Set(reflect.ValueOf(&now))
+				} else {
+					fieldVal.Set(reflect.ValueOf(now))
+				}
+			}
+			return
+		}
 	}
 }
 
 // clearDeletedAt clears the deleted_at timestamp
 func (r *RepositoryImpl) clearDeletedAt(entity interface{}) {
-	if r.metadata.DeletedAt == "" {
+	if !r.metadata.SoftDeletes {
 		return
 	}
 
-	entityValue := reflect.ValueOf(entity)
-	if entityValue.Kind() == reflect.Ptr {
-		entityValue = entityValue.Elem()
+	entityVal := reflect.ValueOf(entity)
+	if entityVal.Kind() == reflect.Ptr {
+		entityVal = entityVal.Elem()
 	}
 
-	if field := entityValue.FieldByName(r.metadata.DeletedAt); field.IsValid() && field.CanSet() {
-		field.Set(reflect.Zero(field.Type()))
+	entityType := entityVal.Type()
+
+	for i := 0; i < entityType.NumField(); i++ {
+		field := entityType.Field(i)
+		tag := field.Tag.Get("orm")
+		if strings.Contains(tag, "soft") {
+			fieldVal := entityVal.Field(i)
+			if fieldVal.IsValid() && fieldVal.CanSet() {
+				fieldVal.Set(reflect.Zero(fieldVal.Type()))
+			}
+			return
+		}
 	}
 }
 

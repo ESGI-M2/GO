@@ -52,7 +52,7 @@ func (s *SimpleORM) WithMySQL() *SimpleORM {
 
 // WithPostgreSQL sets the dialect to PostgreSQL
 func (s *SimpleORM) WithPostgreSQL() *SimpleORM {
-	s.dialectType = factory.PostgreSQL
+	s.dialectType = factory.Postgres
 	return s
 }
 
@@ -78,7 +78,7 @@ func (s *SimpleORM) WithConfigBuilder(builder *ConfigBuilder) *SimpleORM {
 // WithQuickConfig provides a quick way to set common configuration
 func (s *SimpleORM) WithQuickConfig(host, database, username, password string) *SimpleORM {
 	port := 3306
-	if s.dialectType == factory.PostgreSQL || s.dialectType == factory.Postgres {
+	if s.dialectType == factory.Postgres {
 		port = 5432
 	}
 

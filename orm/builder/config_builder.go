@@ -41,7 +41,7 @@ func (cb *ConfigBuilder) WithDialect(dialectType factory.DialectType) *ConfigBui
 		if cb.config.Port == 0 || cb.config.Port == 5432 {
 			cb.config.Port = 3306
 		}
-	case factory.PostgreSQL, factory.Postgres:
+	case factory.Postgres:
 		if cb.config.Port == 0 || cb.config.Port == 3306 {
 			cb.config.Port = 5432
 		}
@@ -131,7 +131,7 @@ func (cb *ConfigBuilder) FromEnv() *ConfigBuilder {
 	switch cb.dialectType {
 	case factory.MySQL:
 		cb.fromMySQLEnv()
-	case factory.PostgreSQL, factory.Postgres:
+	case factory.Postgres:
 		cb.fromPostgresEnv()
 	}
 
@@ -217,7 +217,7 @@ func MySQL() *ConfigBuilder {
 
 // PostgreSQL creates a PostgreSQL configuration builder
 func PostgreSQL() *ConfigBuilder {
-	return NewConfigBuilder().WithDialect(factory.PostgreSQL)
+	return NewConfigBuilder().WithDialect(factory.Postgres)
 }
 
 // Mock creates a mock configuration builder for testing

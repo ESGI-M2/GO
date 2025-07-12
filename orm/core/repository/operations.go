@@ -223,6 +223,27 @@ func (r *RepositoryImpl) update(entity interface{}) error {
 	for _, column := range r.metadata.Columns {
 		// Find field by column name
 		field := r.findFieldByColumnName(entityValue, column.Name)
+
+		// Handle soft delete column specially: include even if nil to allow setting NULL
+		if column.Name == r.metadata.DeletedAt {
+			sets = append(sets, fmt.Sprintf("%s = %s", column.Name, r.orm.GetDialect().GetPlaceholder(len(values))))
+
+			if field.IsValid() {
+				if field.Kind() == reflect.Ptr {
+					if field.IsNil() {
+						values = append(values, nil)
+					} else {
+						values = append(values, field.Interface())
+					}
+				} else {
+					values = append(values, field.Interface())
+				}
+			} else {
+				values = append(values, nil)
+			}
+			continue
+		}
+
 		if !field.IsValid() || (field.Kind() == reflect.Ptr && field.IsNil()) {
 			continue // skip unset or nil fields
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ESGI-M2/GO/orm/core/interfaces"
@@ -416,34 +417,48 @@ func (qb *BuilderImpl) loadRelations(results []map[string]interface{}) ([]map[st
 		return results, nil
 	}
 
-	// Load each relation
+	// Load each relation using metadata information
 	for relationName, relationFn := range qb.withRelations {
-		// Create a new query builder for the relation
-		relationQuery := NewBuilder(qb.Orm, qb.Metadata)
-		relationQuery = relationFn(relationQuery).(*BuilderImpl)
+		relInfo, ok := qb.Metadata.Relations[relationName]
+		if !ok {
+			continue // unknown relation
+		}
 
-		// Add WHERE IN condition for the foreign key
-		relationQuery.WhereIn("user_id", ids)
+		// Determine the actual model type (handle slice for has_many)
+		modelType := relInfo.TargetModel
+		if modelType.Kind() == reflect.Slice {
+			modelType = modelType.Elem()
+		}
 
-		// Execute the relation query
+		relModelPtr := reflect.New(modelType).Interface()
+
+		relationQuery := qb.Orm.Query(relModelPtr)
+		relationQuery = relationFn(relationQuery).(interfaces.QueryBuilder)
+
+		// Use the foreign key defined in relation metadata
+		fkField := relInfo.ForeignKey
+		if fkField == "" {
+			fkField = "user_id" // fallback
+		}
+
+		relationQuery.WhereIn(fkField, ids)
+
 		relationResults, err := relationQuery.Find()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load relation %s: %w", relationName, err)
 		}
 
-		// Group relation results by foreign key
 		relationMap := make(map[interface{}][]map[string]interface{})
 		for _, relationResult := range relationResults {
-			if fk, ok := relationResult["user_id"]; ok {
+			if fk, ok := relationResult[fkField]; ok {
 				relationMap[fk] = append(relationMap[fk], relationResult)
 			}
 		}
 
-		// Attach relations to main results
 		for i, result := range results {
 			if id, ok := result["id"]; ok {
-				if relations, exists := relationMap[id]; exists {
-					results[i][relationName] = relations
+				if rels, exists := relationMap[id]; exists {
+					results[i][relationName] = rels
 				} else {
 					results[i][relationName] = []map[string]interface{}{}
 				}

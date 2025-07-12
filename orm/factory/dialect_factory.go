@@ -13,11 +13,9 @@ import (
 type DialectType string
 
 const (
-	MySQL      DialectType = "mysql"
-	PostgreSQL DialectType = "postgresql"
-	Postgres   DialectType = "postgres"
-	SQLite     DialectType = "sqlite"
-	Mock       DialectType = "mock"
+	MySQL    DialectType = "mysql"
+	Postgres DialectType = "postgres"
+	Mock     DialectType = "mock"
 )
 
 // DialectFactory provides easy dialect creation
@@ -51,9 +49,7 @@ func (df *DialectFactory) CreateFromString(dialectStr string) (interfaces.Dialec
 func (df *DialectFactory) GetAvailableDialects() []DialectType {
 	return []DialectType{
 		MySQL,
-		PostgreSQL,
 		Postgres,
-		SQLite,
 		Mock,
 	}
 }

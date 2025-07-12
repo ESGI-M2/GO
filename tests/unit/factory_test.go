@@ -145,9 +145,7 @@ func TestDialectFactory_GetAvailableDialects(t *testing.T) {
 	// Check that all expected dialects are present
 	expectedDialects := []factory.DialectType{
 		factory.MySQL,
-		factory.PostgreSQL,
 		factory.Postgres,
-		factory.SQLite,
 		factory.Mock,
 	}
 
@@ -322,14 +320,8 @@ func TestDialectTypeConstants(t *testing.T) {
 		if factory.MySQL != "mysql" {
 			t.Errorf("Expected MySQL to be 'mysql', got %s", factory.MySQL)
 		}
-		if factory.PostgreSQL != "postgresql" {
-			t.Errorf("Expected PostgreSQL to be 'postgresql', got %s", factory.PostgreSQL)
-		}
 		if factory.Postgres != "postgres" {
 			t.Errorf("Expected Postgres to be 'postgres', got %s", factory.Postgres)
-		}
-		if factory.SQLite != "sqlite" {
-			t.Errorf("Expected SQLite to be 'sqlite', got %s", factory.SQLite)
 		}
 		if factory.Mock != "mock" {
 			t.Errorf("Expected Mock to be 'mock', got %s", factory.Mock)

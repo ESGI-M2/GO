@@ -84,7 +84,6 @@ type QueryBuilder interface {
 	Raw(sql string, args ...interface{}) QueryBuilder
 	GetSQL() string
 	GetArgs() []interface{}
-	// New advanced features
 	WhereOr(conditions ...WhereCondition) QueryBuilder
 	WhereRaw(condition string, args ...interface{}) QueryBuilder
 	WhereBetween(field string, min, max interface{}) QueryBuilder
@@ -124,7 +123,6 @@ type Repository interface {
 	DeleteBy(criteria map[string]interface{}) error
 	Count() (int64, error)
 	Exists(id interface{}) (bool, error)
-	// New advanced features
 	FindWithRelations(id interface{}, relations ...string) (interface{}, error)
 	FindAllWithRelations(relations ...string) ([]interface{}, error)
 	FindByWithRelations(criteria map[string]interface{}, relations ...string) ([]interface{}, error)
@@ -147,13 +145,12 @@ type Repository interface {
 
 // ConnectionConfig defines database connection configuration
 type ConnectionConfig struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	Database string
-	SSLMode  string
-	// New advanced features
+	Host            string
+	Port            int
+	Username        string
+	Password        string
+	Database        string
+	SSLMode         string
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime int // in seconds
@@ -204,20 +201,18 @@ type Index struct {
 	Name    string
 	Columns []string
 	Unique  bool
-	// New advanced features
 	Type    string // BTREE, HASH, GIN, etc.
 	Partial string // partial index condition
 }
 
 // Relation represents a relationship between models
 type Relation struct {
-	Type          RelationType
-	TargetModel   reflect.Type
-	ForeignKey    string
-	ReferencedKey string
-	JoinTable     string
-	Lazy          bool
-	// New advanced features
+	Type           RelationType
+	TargetModel    reflect.Type
+	ForeignKey     string
+	ReferencedKey  string
+	JoinTable      string
+	Lazy           bool
 	Eager          bool
 	Cascade        bool
 	Polymorphic    bool
@@ -293,7 +288,6 @@ type WhereCondition struct {
 	Operator string
 	Value    interface{}
 	Logical  string // AND, OR
-	// New advanced features
 	Raw      bool
 	SubQuery QueryBuilder
 	Nested   []WhereCondition
@@ -310,9 +304,8 @@ type Join struct {
 	Type      string // INNER, LEFT, RIGHT, FULL
 	Table     string
 	Condition string
-	// New advanced features
-	Alias    string
-	SubQuery QueryBuilder
+	Alias     string
+	SubQuery  QueryBuilder
 }
 
 // PaginationResult represents pagination result
