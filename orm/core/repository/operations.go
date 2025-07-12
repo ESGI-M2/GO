@@ -150,30 +150,59 @@ func (r *RepositoryImpl) insert(entity interface{}) error {
 	var columns []string
 	var values []interface{}
 	var placeholders []string
+	var autoIncCol string
+	var autoIncField reflect.Value
 
 	for _, column := range r.metadata.Columns {
-		// Find field by column name
 		field := r.findFieldByColumnName(entityValue, column.Name)
 		if !field.IsValid() {
 			continue
 		}
-
-		// Skip auto-increment fields for insert
 		if column.AutoIncrement {
+			autoIncCol = column.Name
+			autoIncField = field
 			continue
 		}
-
 		columns = append(columns, column.Name)
 		values = append(values, field.Interface())
 		placeholders = append(placeholders, r.orm.GetDialect().GetPlaceholder(len(placeholders)))
 	}
 
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		r.metadata.TableName,
-		strings.Join(columns, ", "),
-		strings.Join(placeholders, ", "))
+	var query string
+	var result interface{}
+	var err error
 
-	_, err := r.orm.GetDialect().Exec(query, values...)
+	dialectName := strings.ToLower(reflect.TypeOf(r.orm.GetDialect()).String())
+	if strings.Contains(dialectName, "postgres") {
+		// Use RETURNING for Postgres
+		query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING %s",
+			r.metadata.TableName,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "),
+			autoIncCol)
+		row := r.orm.GetDialect().QueryRow(query, values...)
+		var lastID int64
+		err = row.Scan(&lastID)
+		if err == nil && autoIncField.IsValid() && autoIncField.CanSet() {
+			autoIncField.SetInt(lastID)
+		}
+	} else {
+		// MySQL and others
+		query = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			r.metadata.TableName,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "))
+		result, err = r.orm.GetDialect().Exec(query, values...)
+		if err == nil && autoIncField.IsValid() && autoIncField.CanSet() {
+			if res, ok := result.(interface{ LastInsertId() (int64, error) }); ok {
+				lastID, idErr := res.LastInsertId()
+				if idErr == nil {
+					autoIncField.SetInt(lastID)
+				}
+			}
+		}
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to insert entity: %w", err)
 	}
