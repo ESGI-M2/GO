@@ -21,6 +21,10 @@ func NewManager() *Manager {
 
 // ExtractMetadata extracts metadata from a model struct
 func (mm *Manager) ExtractMetadata(model interface{}) (*interfaces.ModelMetadata, error) {
+	// Guard against nil model to avoid runtime panic
+	if model == nil {
+		return nil, fmt.Errorf("model cannot be nil")
+	}
 	t := reflect.TypeOf(model)
 
 	// Handle pointer types
