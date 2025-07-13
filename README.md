@@ -1,1 +1,1 @@
-### Full documentation [here](https://esgi-m2.github.io/go-orm-doc/docs/intro/) 🇫🇷
+Read the full documentation [here](https://esgi-m2.github.io/go-orm-doc/docs/intro/) 🇫🇷
